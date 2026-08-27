@@ -123,3 +123,66 @@ body{background:#f5f6f8;color:var(--ink)}
   .category-grid .cat-card:last-child{width:calc(50% - 4px)}
   .mobile-bottom a.primary-mobile{width:auto;height:auto;margin:0}
 }
+
+
+/* ===== v1.4 mobile alignment + CTA/nav cleanup ===== */
+@media (max-width:760px){
+  /* The seventh category must sit geometrically centered on its own row. */
+  .category-grid .cat-card-last{
+    grid-column:1 / -1 !important;
+    width:calc((100% - 12px) / 2) !important;
+    max-width:none !important;
+    justify-self:center !important;
+  }
+
+  /* Keep the middle navigation action inside the bar, exactly like the other items. */
+  .mobile-bottom{
+    height:64px !important;
+    overflow:hidden !important;
+    align-items:stretch !important;
+  }
+  .mobile-bottom a.primary-mobile{
+    width:100% !important;
+    height:64px !important;
+    margin:0 !important;
+    padding:0 !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+    position:relative !important;
+    inset:auto !important;
+    transform:none !important;
+    color:#5f6b80 !important;
+  }
+  .mobile-bottom a.primary-mobile .ico{
+    width:22px !important;
+    height:22px !important;
+    padding:0 !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    color:var(--blue) !important;
+  }
+  .mobile-bottom a.primary-mobile span:last-child{
+    font-weight:700 !important;
+    color:#5f6b80 !important;
+  }
+
+  /* Home CTA must remain one-line and compact on phones. */
+  .cta-band .primary-btn{
+    white-space:nowrap !important;
+    flex:0 0 auto !important;
+    min-width:132px !important;
+    padding:0 14px !important;
+    font-size:13px !important;
+  }
+}
+@media (min-width:761px){
+  .category-grid .cat-card-last{
+    grid-column:5 / span 2 !important;
+    grid-row:3 !important;
+    width:auto !important;
+    justify-self:stretch !important;
+  }
+}
