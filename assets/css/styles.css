@@ -254,3 +254,10 @@ body{background:#f5f6f8;color:var(--ink)}
     background:#f7f9fb;
   }
 }
+
+
+/* ===== v1.6 remove duplicate mobile search ===== */
+@media(max-width:760px){
+  .hero-search{display:none !important}
+  .hero p{margin-bottom:16px}
+}
