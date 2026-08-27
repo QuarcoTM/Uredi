@@ -113,19 +113,6 @@
     wrap.appendChild(holder);wrap.classList.add('has-mobile-compare');
   })();
 
-
-  // v2.0: safety ticker on every public page. Duplicate groups create a gapless loop.
-  (function addSafetyTicker(){
-    if(document.querySelector('.safety-ticker'))return;
-    const header=document.querySelector('.site-header');
-    if(!header)return;
-    const ticker=document.createElement('div');
-    ticker.className='safety-ticker';
-    const content='<span class="safety-ticker-item"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z"></path><path d="m9 12 2 2 4-4"></path></svg></span>Важно: Не споделяй данни от банковата си карта, PIN, CVV/CVC или кодове за потвърждение с купувачи или продавачи.</span><span class="safety-ticker-sep">•</span><span class="safety-ticker-item">Пази комуникацията в чата и проверявай уреда преди сделка.</span><span class="safety-ticker-sep">•</span>';
-    ticker.innerHTML='<div class="safety-ticker-track"><div class="safety-ticker-group">'+content+'</div><div class="safety-ticker-group" aria-hidden="true">'+content+'</div></div>';
-    header.insertAdjacentElement('afterend',ticker);
-  })();
-
   // v2.0: keep the exact scroll position on refresh and when returning with browser Back/Forward.
   (function preservePagePosition(){
     if(!('sessionStorage' in window))return;
