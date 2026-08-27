@@ -1,0 +1,1 @@
+window.SITE_CONFIG={visibleBrandText:'',siteTitle:'Пазар за бяла техника',domain:'',logo:'assets/img/logo.png',currency:'€'};
