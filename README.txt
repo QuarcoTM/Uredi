@@ -1,41 +1,16 @@
-TEHNIKA v1.2
+TEHNIKA v2.2
 
-ВАЖНО ЗА GITHUB:
-Качи СЪДЪРЖАНИЕТО на архива директно в root на repository-то: index.html, assets/, admin/ и останалите .html файлове. Не качвай ZIP файла като файл и не поставяй проекта в допълнителна подпапка.
+FREE BETA mode:
+- No payments, commissions, TOP, VIP or Boost are visible to users.
+- Paid services remain prepared but disabled in Admin > Monetization.
+- Listings publish immediately after automated checks.
+- Email verification is required before first listing / new conversation.
+- Listings live for 60 days; reminder 7 days before expiry; free renewal only after expiry.
+- Location is city/town only; no public exact address.
+- Minimum 2 / maximum 15 images.
+- Basic text/contact/image duplicate checks are demonstrated in the frontend.
+- Risky listings are surfaced in the admin moderation queue.
+- Default listing order is newest first; edits do not bump listings.
+- Mobile-first behavior and refresh/back scroll restoration from v2.1 are retained.
 
-Промени v1.2:
-- Печки са центрирани между двата реда категории.
-- Буквените съкращения са заменени с икони.
-- Долният mobile бутон Обява вече не изглежда постоянно натиснат.
-- Визията е разчупена с неутрален сив фон, тъмносини акценти и различен CTA блок.
-- Добавен cache-busting ?v=1.2 към CSS/JS, за да не се зарежда стара версия от кеш.
-
-ТЕХНИКА — статичен V1 прототип
-================================
-
-Това е пълен front-end пакет на специализирания marketplace за бяла техника.
-
-СТАРТ
-- Отвори index.html в браузър.
-- Админ панел: admin/index.html
-
-КАКВО РАБОТИ В ПРОТОТИПА
-- responsive дизайн desktop/mobile
-- всички обяви + ляв филтърен панел
-- детайлна обява
-- публикуване на обява на 5 стъпки
-- незадължително поле „Модел“
-- незадължителен телефон, toggle за публично показване
-- вътрешен чат (демо изпращане)
-- любими / сравнение чрез localStorage
-- профил / мои обяви / запазени търсения / известия
-- TOP/VIP/Изкачи визуален модел
-- админ панел с отделни HTML страници
-- правни и safety страници като работни прототипи
-
-ВАЖНО
-Това е статичен front-end прототип. За публичен сайт са нужни backend, база данни, реална автентикация, качване на снимки, реален чат, модерация, email известия и платежен оператор за платените услуги.
-
-SMS потвърждение НЕ е включено във V1. Телефонът е незадължителен.
-
-Логото е заключеният визуален знак без текстов бранд до него.
+This ZIP is still a frontend prototype. Real enforcement must be implemented server-side in the backend.
