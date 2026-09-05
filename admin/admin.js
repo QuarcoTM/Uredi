@@ -74,3 +74,16 @@ document.querySelectorAll('table').forEach(table=>{
     alert('Платените услуги остават изключени в FREE BETA. Ще ги активираме след готовност за монетизация.');
   });
 })();
+
+
+// v2.3: shared Admin navigation adds the sold archive without editing every HTML page.
+(function(){
+  const nav=document.querySelector('.sidebar nav');
+  if(!nav || nav.querySelector('a[href="sold-archive.html"]')) return;
+  const ads=nav.querySelector('a[href="ads.html"]');
+  const a=document.createElement('a');
+  a.href='sold-archive.html';
+  a.textContent='Продадени';
+  if((location.pathname.split('/').pop()||'')==='sold-archive.html') a.classList.add('active');
+  if(ads) ads.insertAdjacentElement('afterend',a); else nav.appendChild(a);
+})();
