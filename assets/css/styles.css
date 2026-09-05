@@ -1105,3 +1105,224 @@ main{background:#f4f6f8}
 .ad-preview-modal{position:fixed;inset:0;z-index:1000;display:none}.ad-preview-modal.open{display:block}.ad-preview-backdrop{position:absolute;inset:0;background:rgba(11,21,35,.52)}.ad-preview-sheet{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100% - 24px));max-height:86vh;overflow:auto;border-radius:16px;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.24)}.ad-preview-head{display:flex;justify-content:space-between;align-items:center;padding:13px 15px;border-bottom:1px solid #e8edf2}.ad-preview-body{padding:15px}.preview-photo{height:240px;border-radius:12px;background:#eef2f6;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#7b8695}.preview-photo img{width:100%;height:100%;object-fit:contain}.preview-price{font-size:24px;font-weight:900;margin:7px 0}
 .conversation{position:relative}.conversation-unread{position:absolute;right:9px;bottom:11px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#1767d9;color:#fff;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center}.conversation-time{position:absolute;right:9px;top:9px;font-size:9px;color:#8893a2}.bubble-seen{font-size:8.5px;color:#6d7c90;text-align:right;margin-top:3px}.chat-safety-actions{display:flex;gap:5px;margin-left:auto}.danger-text{color:#a33f3a!important}.notice-dot{width:8px;height:8px;border-radius:50%;background:#1767d9;flex:0 0 auto}.price-drop-notice{background:#eef7f2}.empty-state-template{margin-top:16px}.empty-icon{width:46px;height:46px;border-radius:50%;background:#edf2f7;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;color:#68798d}
 @media(max-width:760px){.profile-trust-row{grid-template-columns:repeat(2,1fr)}.compact-switch{min-height:50px;padding:9px 10px}.report-card{margin:10px auto;padding:16px}.report-actions{flex-direction:column}.price-history-timeline>div{grid-template-columns:1fr auto}.price-history-timeline em{grid-column:2;text-align:right}.seller-profile-actions{display:grid;grid-template-columns:1fr}.photo-grid[data-photo-preview]{grid-template-columns:repeat(3,1fr)}.ad-preview-sheet{top:auto;bottom:0;transform:translateX(-50%);width:100%;border-radius:18px 18px 0 0;max-height:88vh}.chat-safety-actions{width:100%;margin-left:0}.chat-product{flex-wrap:wrap}}
+
+
+/* ===== v2.4 profile / share / label photo / owner stats ===== */
+
+/* Profile toggles: clean row, text left, small switch right. */
+.profile-toggle-row{
+  display:flex!important;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  min-height:44px;
+  padding:9px 0;
+  border:0!important;
+  border-bottom:1px solid #e8edf2!important;
+  border-radius:0!important;
+  background:transparent!important;
+}
+.profile-toggle-row:last-child{border-bottom:0!important}
+.profile-toggle-text{
+  flex:1;
+  min-width:0;
+  font-size:13px;
+  line-height:1.35;
+  font-weight:700;
+  color:#26384e;
+}
+.profile-toggle-input{
+  flex:0 0 42px!important;
+  width:42px!important;
+  height:24px!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:999px!important;
+  background:#c7ced8!important;
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  position:relative;
+  cursor:pointer;
+  transition:background .18s ease;
+}
+.profile-toggle-input:before{
+  content:"";
+  position:absolute;
+  width:20px;height:20px;
+  left:2px;top:2px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 1px 4px rgba(0,0,0,.20);
+  transition:transform .18s ease;
+}
+.profile-toggle-input:checked{background:#1767d9!important}
+.profile-toggle-input:checked:before{transform:translateX(18px)}
+
+/* Trust cards: real spacing on mobile and desktop. */
+.profile-trust-grid{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:14px!important;
+  margin:18px 0 24px!important;
+}
+.profile-trust-grid>div{
+  min-width:0;
+  padding:13px 14px!important;
+  border:1px solid #dbe4ed!important;
+  border-radius:12px!important;
+  background:#f3f6f9!important;
+}
+.profile-trust-grid strong{
+  display:block!important;
+  margin-bottom:5px!important;
+  font-size:10px!important;
+}
+.profile-trust-grid span{
+  display:block!important;
+  font-size:12px!important;
+  line-height:1.35!important;
+}
+
+/* Listing share */
+.listing-title-row{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+}
+.listing-title-row h1{flex:1;margin-right:6px}
+.listing-share-inline{
+  flex:0 0 38px;
+  width:38px;height:38px;
+  border-radius:10px;
+  border:1px solid #dbe3ec;
+  background:#f8fafc;
+  color:#1e5da8;
+  font-size:18px;
+}
+.share-listing-btn{
+  width:100%;
+  margin-top:8px;
+}
+
+/* Optional product label photo */
+.label-photo-block{
+  margin-top:14px;
+  padding:14px;
+  border:1px solid #dbe4ed;
+  border-radius:12px;
+  background:#f7f9fb;
+}
+.label-photo-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+.label-photo-head>div{display:grid;gap:3px}
+.label-photo-head strong{font-size:13px}
+.label-photo-head span{font-size:11px;line-height:1.4;color:#6d7888}
+.optional-badge{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  height:24px;
+  padding:0 8px;
+  border-radius:999px;
+  background:#eaf2fb;
+  color:#175dac!important;
+  font-size:9px!important;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.label-photo-button{
+  margin-top:11px;
+  width:auto;
+}
+.label-photo-preview{
+  margin-top:10px;
+  width:132px;
+  border:1px solid #d8e0e8;
+  border-radius:10px;
+  overflow:hidden;
+  background:#fff;
+}
+.label-photo-preview img{
+  display:block;
+  width:100%;
+  aspect-ratio:1/1;
+  object-fit:cover;
+}
+.label-photo-hint{
+  margin-top:8px;
+  color:#7a8594;
+  font-size:10px;
+}
+
+/* Owner listing stats */
+.owner-stats{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin-top:9px;
+}
+.owner-stats span{
+  display:grid;
+  gap:1px;
+  min-width:78px;
+  padding:6px 8px;
+  border-radius:8px;
+  background:#f0f4f8;
+  border:1px solid #e0e7ee;
+}
+.owner-stats strong{
+  font-size:12px;
+  color:#263b53;
+}
+.owner-stats small{
+  font-size:9px;
+  color:#728093;
+}
+
+/* Admin activity stats */
+.listing-activity-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  padding:14px;
+}
+.listing-activity-grid>div{
+  padding:12px;
+  border:1px solid #dde5ed;
+  border-radius:10px;
+  background:#f8fafc;
+}
+.listing-activity-grid strong{
+  display:block;
+  font-size:20px;
+  margin-bottom:3px;
+}
+.listing-activity-grid span{
+  font-size:10px;
+  color:#778295;
+}
+
+@media(max-width:760px){
+  .profile-trust-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:12px!important;
+    margin:16px 0 22px!important;
+  }
+  .profile-trust-grid>div{padding:12px!important}
+  .profile-toggle-row{min-height:46px;padding:10px 0}
+  .profile-toggle-text{font-size:12.5px}
+  .listing-title-row{align-items:center}
+  .listing-share-inline{width:36px;height:36px;flex-basis:36px}
+  .label-photo-head{display:grid}
+  .optional-badge{justify-self:start}
+  .label-photo-button{width:100%}
+  .owner-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .owner-stats span{min-width:0}
+  .listing-activity-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
