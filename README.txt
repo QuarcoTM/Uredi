@@ -1,18 +1,12 @@
-TEHNIKA v2.3
+TEHNIKA v2.4
 
-Added from the approved decisions:
-- Better compact profile switches.
-- Profile trust information.
-- Report listing / seller / chat flow.
-- Photo count, cover photo, reorder and listing preview.
-- Better chat: unread, timestamps, seen, block/report.
-- Price history.
-- Similar listings remain.
-- Recently viewed.
-- Price-drop notification for favorites.
-- Follow seller.
-- Sold archive only in Admin for internal statistics.
-- Admin operational dashboard cards.
-- FREE BETA rules from v2.2 remain.
+New/changed:
+- Profile switches redesigned as clean compact rows.
+- Trust cards in Profile now have real spacing.
+- "Сподели обявата" added; uses native phone share sheet when available.
+- Optional product-label photo added to posting flow; not required and not counted toward the 2-photo minimum.
+- Seller sees own-listing stats: views, favorites and started conversations.
+- Admin gets aggregate listing activity metrics.
+- All accepted v2.3 and FREE BETA rules remain.
 
-Still a frontend prototype: real email sending, database, server-side moderation and real notifications start with the backend.
+Still frontend prototype: real account state, email sending, uploads, analytics, notifications and moderation will be implemented in the backend.
