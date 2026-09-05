@@ -406,4 +406,235 @@
     });
   })();
 
+
+  // v2.5 PWA registration
+  if('serviceWorker' in navigator){
+    addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  }
+
+  // v2.5 subtle search suggestions.
+  (function(){
+    const suggestions=[
+      {label:'Bosch',type:'Марка',href:'listings.html?brand=Bosch'},
+      {label:'Bosch Serie 6',type:'Модел',href:'listings.html?q=Bosch%20Serie%206'},
+      {label:'Bosch перални',type:'Категория',href:'listings.html?category=Перални&brand=Bosch'},
+      {label:'Перални',type:'Категория',href:'listings.html?category=Перални'},
+      {label:'Сушилни',type:'Категория',href:'listings.html?category=Сушилни'},
+      {label:'Хладилници',type:'Категория',href:'listings.html?category=Хладилници'},
+      {label:'София',type:'Град',href:'listings.html?city=София'},
+      {label:'Пловдив',type:'Град',href:'listings.html?city=Пловдив'},
+      {label:'Кюстендил',type:'Град',href:'listings.html?city=Кюстендил'},
+      {label:'LG',type:'Марка',href:'listings.html?brand=LG'},
+      {label:'Samsung',type:'Марка',href:'listings.html?brand=Samsung'}
+    ];
+    document.querySelectorAll('.header-search,.mobile-header-search').forEach(box=>{
+      const input=box.querySelector('input');
+      if(!input||box.querySelector('.search-suggest'))return;
+      const menu=document.createElement('div');menu.className='search-suggest';box.appendChild(menu);
+      const render=()=>{
+        const q=input.value.trim().toLowerCase();
+        if(!q){menu.classList.remove('open');menu.innerHTML='';return}
+        const found=suggestions.filter(x=>x.label.toLowerCase().includes(q)).slice(0,4);
+        if(!found.length){menu.classList.remove('open');return}
+        menu.innerHTML=found.map(x=>`<a href="${x.href}"><span>${x.label}</span><small>${x.type}</small></a>`).join('');
+        menu.classList.add('open');
+      };
+      input.addEventListener('input',render);
+      input.addEventListener('focus',render);
+      document.addEventListener('click',e=>{if(!box.contains(e.target))menu.classList.remove('open')});
+    });
+  })();
+
+  // v2.5 PWA install flow: native prompt on supporting browsers, instructions on iPhone/iPad.
+  (function(){
+    let deferredPrompt=null;
+    window.addEventListener('beforeinstallprompt',e=>{
+      e.preventDefault();
+      deferredPrompt=e;
+      document.querySelectorAll('[data-install-app]').forEach(b=>b.disabled=false);
+    });
+
+    const isiOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+    const standalone=window.matchMedia('(display-mode: standalone)').matches || navigator.standalone===true;
+
+    document.querySelectorAll('[data-install-app]').forEach(btn=>{
+      if(standalone){btn.textContent='Добавено';btn.disabled=true}
+      btn.addEventListener('click',async()=>{
+        if(standalone)return;
+        if(deferredPrompt){
+          deferredPrompt.prompt();
+          try{await deferredPrompt.userChoice}catch(e){}
+          deferredPrompt=null;
+          return;
+        }
+        if(isiOS){
+          showInstallHelp('iPhone / iPad','Натисни бутона за споделяне в Safari, избери „Добави към началния екран“ и потвърди „Добави“. След това сайтът ще се отваря като приложение.');
+        }else{
+          showInstallHelp('Добавяне на началния екран','От менюто на браузъра избери „Инсталиране на приложение“ или „Добави към началния екран“.');
+        }
+      });
+    });
+
+    function showInstallHelp(title,text){
+      let wrap=document.querySelector('.install-help');
+      if(!wrap){
+        wrap=document.createElement('div');wrap.className='install-help';
+        wrap.innerHTML=`<div class="install-help-card"><h3></h3><p></p><button class="primary-btn" type="button">Разбрах</button></div>`;
+        document.body.appendChild(wrap);
+        wrap.querySelector('button').addEventListener('click',()=>wrap.classList.remove('open'));
+        wrap.addEventListener('click',e=>{if(e.target===wrap)wrap.classList.remove('open')});
+      }
+      wrap.querySelector('h3').textContent=title;
+      wrap.querySelector('p').textContent=text;
+      wrap.classList.add('open');
+    }
+  })();
+
+  // v2.5 Push permission/UI. Remote pushes will be connected to the backend later.
+  (function(){
+    const btn=document.querySelector('[data-enable-push]');
+    const status=document.querySelector('[data-push-status]');
+    if(!btn)return;
+    const draw=()=>{
+      if(!('Notification' in window)){
+        btn.disabled=true;btn.textContent='Неподдържано';
+        if(status)status.textContent='Този браузър не поддържа web push.';
+        return;
+      }
+      if(Notification.permission==='granted'){
+        btn.textContent='Включени';btn.disabled=true;
+        if(status)status.textContent='Разрешението за push известия е активно.';
+      }else if(Notification.permission==='denied'){
+        btn.textContent='Блокирани';btn.disabled=true;
+        if(status)status.textContent='Известията са блокирани от настройките на браузъра.';
+      }
+    };
+    draw();
+    btn.addEventListener('click',async()=>{
+      if(!('Notification' in window))return;
+      const p=await Notification.requestPermission();
+      draw();
+      if(p==='granted' && 'serviceWorker' in navigator){
+        try{
+          const reg=await navigator.serviceWorker.ready;
+          await reg.showNotification('Известията са включени',{
+            body:'Когато свържем backend-а, тук ще идват чатове и важни промени по обявите.',
+            icon:'assets/img/pwa-192.png',
+            data:{url:'notifications.html'}
+          });
+        }catch(e){}
+      }
+    });
+  })();
+
+  // v2.5 gallery: thumbnail switching, swipe, fullscreen and pinch zoom.
+  (function(){
+    const main=document.querySelector('[data-gallery-main]');
+    if(!main)return;
+    const mainImg=main.querySelector('img');
+    const thumbs=[...document.querySelectorAll('[data-gallery-thumbs] img')];
+    let images=[];
+    try{images=JSON.parse(main.dataset.galleryImages||'[]')}catch(e){}
+    if(!images.length && mainImg?.src)images=[mainImg.getAttribute('src')];
+    let index=Math.max(0,images.indexOf(mainImg?.getAttribute('src')));
+    const counter=document.querySelector('[data-gallery-counter]');
+    const modal=document.querySelector('[data-gallery-modal]');
+    const modalImg=modal?.querySelector('[data-gallery-modal-image]');
+    const modalCounter=modal?.querySelector('[data-gallery-modal-counter]');
+    const stage=modal?.querySelector('[data-gallery-stage]');
+    let scale=1,startX=null,lastPinch=null;
+
+    const show=i=>{
+      if(!images.length)return;
+      index=(i+images.length)%images.length;
+      if(mainImg)mainImg.src=images[index];
+      if(counter)counter.textContent=(index+1)+'/'+images.length;
+      thumbs.forEach((im,n)=>im.parentElement?.classList.toggle('active',n===index));
+      if(modalImg)modalImg.src=images[index];
+      if(modalCounter)modalCounter.textContent=(index+1)+'/'+images.length;
+      scale=1;if(modalImg)modalImg.style.transform='scale(1)';
+    };
+    thumbs.forEach((im,i)=>im.addEventListener('click',()=>show(i)));
+    show(index);
+
+    let touchStart=0;
+    main.addEventListener('touchstart',e=>{if(e.touches.length===1)touchStart=e.touches[0].clientX},{passive:true});
+    main.addEventListener('touchend',e=>{
+      const dx=e.changedTouches[0].clientX-touchStart;
+      if(Math.abs(dx)>45)show(index+(dx<0?1:-1));
+    },{passive:true});
+
+    document.querySelector('[data-gallery-open]')?.addEventListener('click',()=>{
+      if(!modal)return;show(index);modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
+    });
+    const close=()=>{if(!modal)return;modal.classList.remove('open');modal.setAttribute('aria-hidden','true');document.body.style.overflow='';scale=1};
+    modal?.querySelector('[data-gallery-close]')?.addEventListener('click',close);
+    modal?.querySelector('[data-gallery-prev]')?.addEventListener('click',()=>show(index-1));
+    modal?.querySelector('[data-gallery-next]')?.addEventListener('click',()=>show(index+1));
+
+    if(stage){
+      stage.addEventListener('touchstart',e=>{
+        if(e.touches.length===1){startX=e.touches[0].clientX;lastPinch=null}
+        if(e.touches.length===2){
+          const [a,b]=e.touches;lastPinch=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+        }
+      },{passive:true});
+      stage.addEventListener('touchmove',e=>{
+        if(e.touches.length===2 && modalImg){
+          e.preventDefault();
+          const [a,b]=e.touches,dist=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+          if(lastPinch){
+            scale=Math.max(1,Math.min(4,scale*(dist/lastPinch)));
+            modalImg.style.transform='scale('+scale+')';
+          }
+          lastPinch=dist;
+        }
+      },{passive:false});
+      stage.addEventListener('touchend',e=>{
+        if(e.changedTouches.length===1 && startX!==null && scale<=1.05){
+          const dx=e.changedTouches[0].clientX-startX;
+          if(Math.abs(dx)>45)show(index+(dx<0?1:-1));
+        }
+        startX=null;lastPinch=null;
+      },{passive:true});
+      stage.addEventListener('dblclick',()=>{
+        scale=scale>1?1:2;
+        if(modalImg)modalImg.style.transform='scale('+scale+')';
+      });
+    }
+    document.addEventListener('keydown',e=>{
+      if(!modal?.classList.contains('open'))return;
+      if(e.key==='Escape')close();
+      if(e.key==='ArrowLeft')show(index-1);
+      if(e.key==='ArrowRight')show(index+1);
+    });
+  })();
+
+  // v2.5 price history popup for green/down or red/up indicator.
+  (function(){
+    let pop=null;
+    const ensure=()=>{
+      if(pop)return pop;
+      pop=document.createElement('div');pop.className='price-history-popover';
+      pop.innerHTML='<div class="price-history-popover-card"><div class="price-history-popover-head"><h3>История на цената</h3><button type="button" aria-label="Затвори">×</button></div><div class="price-history-popover-list"></div></div>';
+      document.body.appendChild(pop);
+      pop.querySelector('button').addEventListener('click',()=>pop.classList.remove('open'));
+      pop.addEventListener('click',e=>{if(e.target===pop)pop.classList.remove('open')});
+      return pop;
+    };
+    document.addEventListener('click',e=>{
+      const btn=e.target.closest('[data-price-history]');
+      if(!btn)return;
+      e.preventDefault();e.stopPropagation();
+      const p=ensure();
+      const list=p.querySelector('.price-history-popover-list');
+      const rows=(btn.dataset.priceHistory||'').split(';').filter(Boolean).map(x=>{
+        const [price,date]=x.split('|');
+        return `<div><span>${date||''}</span><strong>${price||''}</strong></div>`;
+      }).join('');
+      list.innerHTML=rows||'<div><span>Няма предишни промени.</span><strong>—</strong></div>';
+      p.classList.add('open');
+    });
+  })();
+
 })();

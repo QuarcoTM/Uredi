@@ -15,6 +15,12 @@ window.SITE_CONFIG={
   shareListingEnabled:true,
   optionalProductLabelPhotoEnabled:true,
   ownerListingStatsEnabled:true,
+  pwaEnabled:true,
+  pushNotificationsEnabled:true,
+  galleryEnabled:true,
+  presenceEnabled:true,
+  priceTrendEnabled:true,
+  searchSuggestionsEnabled:true,
   moderation:{
     minPhotos:2,
     maxPhotos:15,
