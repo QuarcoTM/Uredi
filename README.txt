@@ -1,12 +1,15 @@
-TEHNIKA v2.4
+TEHNIKA v2.5
 
-New/changed:
-- Profile switches redesigned as clean compact rows.
-- Trust cards in Profile now have real spacing.
-- "Сподели обявата" added; uses native phone share sheet when available.
-- Optional product-label photo added to posting flow; not required and not counted toward the 2-photo minimum.
-- Seller sees own-listing stats: views, favorites and started conversations.
-- Admin gets aggregate listing activity metrics.
-- All accepted v2.3 and FREE BETA rules remain.
+Accepted additions:
+- Real mobile photo gallery: swipe, fullscreen, image count, pinch zoom.
+- PWA setup for Android and iPhone/iPad Home Screen.
+- Web Push permission UI and service worker; backend delivery will be connected in v3.x.
+- Online-now / last-active direction and average response-time UI.
+- Price movement indicator like a classifieds marketplace:
+  green down / red up; tap to see dated price history.
+- Light search suggestion submenu for brand/model/category/city.
+- All accepted v2.4 features remain.
 
-Still frontend prototype: real account state, email sending, uploads, analytics, notifications and moderation will be implemented in the backend.
+Important:
+Remote push delivery still needs the real backend and push subscription storage.
+This package prepares the browser/PWA/service-worker side without pretending a backend exists.

@@ -1,2 +1,2 @@
-tehnika v2.4
-Profile fix + Share + optional product label + owner stats
+tehnika v2.5
+Gallery + PWA + push prep + presence + price trends + search suggestions
