@@ -8,6 +8,10 @@ window.SITE_CONFIG={
   paidServicesEnabled:false,
   emailVerificationRequired:true,
   adLifetimeDays:60,
+  priceHistoryEnabled:true,
+  recentlyViewedEnabled:true,
+  followSellerEnabled:true,
+  priceDropNotificationsEnabled:true,
   moderation:{
     minPhotos:2,
     maxPhotos:15,

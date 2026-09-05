@@ -307,4 +307,41 @@
     alert(msg);
   }));
 
+
+  // v2.3 recently viewed
+  (function(){
+    const file=(location.pathname.split('/').pop()||'index.html').toLowerCase(),key='marketRecentViewedV23';
+    const get=()=>{try{return JSON.parse(localStorage.getItem(key)||'[]')}catch(e){return[]}};
+    if(file==='listing.html'){
+      const item={id:'bosch-serie-6',title:document.querySelector('.detail-card h1')?.textContent?.trim()||'Bosch Serie 6',price:document.querySelector('.detail-price')?.textContent?.trim()||'329 €',image:document.querySelector('.gallery-main img')?.getAttribute('src')||'assets/img/products/washer-blue.svg',meta:'9 kg · 1400 rpm · A',location:'София',href:'listing.html',viewedAt:Date.now()};
+      const arr=get().filter(x=>x.id!==item.id);arr.unshift(item);localStorage.setItem(key,JSON.stringify(arr.slice(0,8)));
+    }
+    if(file==='index.html'){
+      const sec=document.querySelector('[data-recent-section]'),grid=document.querySelector('[data-recent-grid]'),items=get();
+      if(sec&&grid&&items.length){sec.style.display='';grid.innerHTML=items.slice(0,4).map(x=>`<article class="product-card"><a href="${x.href}"><img class="product-img" src="${x.image}" alt="${x.title}"></a><div class="card-body"><a href="${x.href}"><h3 class="product-title">${x.title}</h3><div class="product-specs">${x.meta}</div></a><div class="product-meta"><div class="price">${x.price}</div><span class="location">${x.location}</span></div></div></article>`).join('')}
+    }
+  })();
+
+  document.querySelectorAll('[data-follow-seller]').forEach(btn=>{
+    const key='marketFollow:'+btn.dataset.followSeller;
+    const draw=()=>{const on=localStorage.getItem(key)==='1';btn.textContent=on?'Следваш продавача':'Следвай продавача';btn.classList.toggle('is-following',on)};
+    btn.addEventListener('click',()=>{localStorage.setItem(key,localStorage.getItem(key)==='1'?'0':'1');draw()});draw();
+  });
+
+  document.querySelector('[data-submit-report]')?.addEventListener('click',()=>{const x=document.querySelector('[data-report-success]');if(x){x.style.display='block';x.scrollIntoView({behavior:'smooth',block:'center'})}});
+  document.querySelectorAll('[data-history-back]').forEach(b=>b.addEventListener('click',()=>history.length>1?history.back():location.assign('index.html')));
+
+  (function(){
+    const input=document.querySelector('[data-photo-input]'),grid=document.querySelector('[data-photo-preview]'),counter=document.querySelector('[data-photo-counter]'),status=document.querySelector('[data-photo-status]');
+    if(!input||!grid)return;let items=[];
+    const draw=()=>{if(counter)counter.textContent=items.length+'/15';if(status)status.textContent=items.length+'/15 снимки · минимум 2';if(!items.length){grid.innerHTML='<div class="photo-preview-empty">Избраните снимки ще се появят тук. Първата ще бъде основна.</div>';return}grid.innerHTML=items.map((it,i)=>`<div class="photo-preview-card"><img src="${it.url}" alt="">${i===0?'<span class="photo-label">Основна</span>':''}<div class="photo-move"><button type="button" data-photo-left="${i}" ${i===0?'disabled':''}>←</button><button type="button" data-photo-right="${i}" ${i===items.length-1?'disabled':''}>→</button></div></div>`).join('')};
+    input.addEventListener('change',()=>{items.forEach(x=>{try{URL.revokeObjectURL(x.url)}catch(e){}});items=[...input.files].slice(0,15).map(f=>({file:f,url:URL.createObjectURL(f)}));draw()});
+    grid.addEventListener('click',e=>{const l=e.target.closest('[data-photo-left]'),rr=e.target.closest('[data-photo-right]');if(l){const i=+l.dataset.photoLeft;if(i>0){[items[i-1],items[i]]=[items[i],items[i-1]];draw()}}if(rr){const i=+rr.dataset.photoRight;if(i<items.length-1){[items[i+1],items[i]]=[items[i],items[i+1]];draw()}}});
+    const modal=document.querySelector('[data-ad-preview-modal]');
+    document.querySelector('[data-ad-preview]')?.addEventListener('click',()=>{if(!modal)return;const ph=modal.querySelector('[data-preview-photo]');if(ph)ph.innerHTML=items[0]?`<img src="${items[0].url}" alt="">`:'Основна снимка';modal.querySelector('[data-preview-price]').textContent=(document.querySelector('[data-ad-price]')?.value||'—')+' €';modal.querySelector('[data-preview-description]').textContent=document.querySelector('[data-ad-description]')?.value||'Описанието ще се покаже тук.';modal.classList.add('open');modal.setAttribute('aria-hidden','false')});
+    modal?.querySelectorAll('[data-close-preview]').forEach(x=>x.addEventListener('click',()=>{modal.classList.remove('open');modal.setAttribute('aria-hidden','true')}));
+  })();
+
+  document.querySelector('[data-block-user]')?.addEventListener('click',e=>{const on=e.currentTarget.dataset.blocked==='1';e.currentTarget.dataset.blocked=on?'0':'1';e.currentTarget.textContent=on?'Блокирай':'Отблокирай'});
+
 })();
