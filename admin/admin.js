@@ -63,3 +63,14 @@ document.querySelectorAll('table').forEach(table=>{
     }catch(e){}
   }
 })();
+
+// v2.2 FREE BETA safeguard.
+(function(){
+  const t=document.querySelector('[data-paid-services-toggle]');
+  if(!t)return;
+  t.checked=false;
+  t.addEventListener('change',()=>{
+    t.checked=false;
+    alert('Платените услуги остават изключени в FREE BETA. Ще ги активираме след готовност за монетизация.');
+  });
+})();

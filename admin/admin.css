@@ -229,3 +229,14 @@ body{background:#edf1f5}
   .topbar{background:#fbfcfd}
   .admin-content{background:#f1f4f7!important}
 }
+
+/* ===== v2.2 FREE BETA admin ===== */
+.admin-status-off{display:inline-flex;align-items:center;height:27px;padding:0 9px;border-radius:7px;background:#fff0dd;color:#8d5308;font-size:10px;font-weight:900}
+.beta-admin-panel{border-color:#cfddeb}
+.admin-switch-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px;border:1px solid var(--line);border-radius:9px;background:#f8fafc}
+.admin-switch-row span{display:grid;gap:2px}.admin-switch-row small{color:#758095}
+.admin-switch-row input{width:42px!important;height:23px!important}
+.admin-hint{font-size:11px;color:#6e788a;margin-top:6px}
+.admin-info-box{display:grid;gap:4px;padding:13px;border-radius:9px;background:#eef4fa;border:1px solid #d6e2ef;color:#425a77}
+.admin-info-box span{font-size:12px}
+input:disabled{background:#f1f3f6;color:#7c8594}
