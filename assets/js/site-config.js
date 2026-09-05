@@ -1,1 +1,21 @@
-window.SITE_CONFIG={visibleBrandText:'',siteTitle:'Пазар за бяла техника',domain:'',logo:'assets/img/logo.png',currency:'€'};
+window.SITE_CONFIG={
+  visibleBrandText:'',
+  siteTitle:'Пазар за бяла техника',
+  domain:'',
+  logo:'assets/img/logo.png',
+  currency:'€',
+  freeBeta:true,
+  paidServicesEnabled:false,
+  emailVerificationRequired:true,
+  adLifetimeDays:60,
+  moderation:{
+    minPhotos:2,
+    maxPhotos:15,
+    allowedImageTypes:['image/jpeg','image/png','image/webp'],
+    maxImageMb:10
+  },
+  antiSpam:{
+    listingsPerHour:20,
+    newConversationsPerHour:60
+  }
+};

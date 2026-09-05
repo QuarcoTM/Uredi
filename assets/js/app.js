@@ -178,4 +178,133 @@
     }catch(err){}
   });
 
+
+  // v2.2: FREE BETA is a real application mode.
+  (function applyFreeBeta(){
+    const cfg=window.SITE_CONFIG||{};
+    if(cfg.paidServicesEnabled!==false)return;
+    document.documentElement.classList.add('free-beta');
+    $$('a[href="promote.html"],a[href="checkout.html"]').forEach(a=>a.remove());
+    $$('.badge-vip,.badge-top,.promo-badge').forEach(x=>x.remove());
+    $$('.listing-row.vip,.listing-row.top').forEach(x=>{x.classList.remove('vip','top')});
+  })();
+
+  // v2.2: real sorting for the current result set. Default is newest first.
+  (function listingSort(){
+    const select=$('[data-sort-listings]');
+    const list=$('.listing-list');
+    if(!select||!list)return;
+    const sort=()=>{
+      const rows=[...list.querySelectorAll('.listing-row')];
+      const mode=select.value||select.options[select.selectedIndex]?.textContent||'';
+      rows.sort((a,b)=>{
+        if(mode.includes('ниска'))return (+a.dataset.price)-(+b.dataset.price);
+        if(mode.includes('висока'))return (+b.dataset.price)-(+a.dataset.price);
+        return (+b.dataset.created||0)-(+a.dataset.created||0);
+      });
+      rows.forEach(r=>list.appendChild(r));
+    };
+    select.addEventListener('change',sort);
+    sort();
+  })();
+
+  // v2.2: email verification flow for the static prototype.
+  (function emailVerification(){
+    $('[data-register-submit]')?.addEventListener('click',()=>localStorage.setItem('marketEmailVerified','0'));
+    $('[data-email-verified]')?.addEventListener('click',()=>{
+      localStorage.setItem('marketEmailVerified','1');
+      location.href='profile.html';
+    });
+    $('[data-resend-email]')?.addEventListener('click',e=>{
+      e.currentTarget.textContent='Линкът е изпратен отново';
+      e.currentTarget.disabled=true;
+      setTimeout(()=>{e.currentTarget.disabled=false;e.currentTarget.textContent='Изпрати линка отново'},2500);
+    });
+    const file=(location.pathname.split('/').pop()||'index.html').toLowerCase();
+    if((window.SITE_CONFIG||{}).emailVerificationRequired && ['post-ad.html','messages.html'].includes(file) && localStorage.getItem('marketEmailVerified')==='0'){
+      location.replace('verify-email.html?next='+encodeURIComponent(file));
+    }
+  })();
+
+  // v2.2: image picker + lightweight pre-publication checks.
+  (function adModeration(){
+    const picker=$('[data-photo-picker]');
+    const input=$('[data-photo-input]');
+    const status=$('[data-photo-status]');
+    if(picker&&input){
+      picker.addEventListener('click',()=>input.click());
+      input.addEventListener('change',()=>{
+        const files=[...input.files];
+        const cfg=(window.SITE_CONFIG||{}).moderation||{};
+        const allowed=cfg.allowedImageTypes||['image/jpeg','image/png','image/webp'];
+        const maxBytes=(cfg.maxImageMb||10)*1024*1024;
+        const bad=files.filter(f=>!allowed.includes(f.type)||f.size>maxBytes);
+        const dup=new Set(), duplicates=[];
+        files.forEach(f=>{const k=f.name+'|'+f.size;if(dup.has(k))duplicates.push(f.name);dup.add(k)});
+        if(status){
+          if(bad.length)status.textContent='Невалиден формат или прекалено голям файл.';
+          else if(duplicates.length)status.textContent='Има вероятно дублирани снимки.';
+          else status.textContent=files.length+' избрани снимки.';
+        }
+      });
+    }
+
+    const publish=$('[data-publish]');
+    if(!publish)return;
+    publish.addEventListener('click',e=>{
+      const feedback=$('[data-moderation-feedback]');
+      const desc=($('[data-ad-description]')?.value||'').trim();
+      const defects=($('[data-ad-defects]')?.value||'').trim();
+      const price=+$('[data-ad-price]')?.value||0;
+      const files=[...($('[data-photo-input]')?.files||[])];
+      const cfg=(window.SITE_CONFIG||{}).moderation||{};
+      const min=cfg.minPhotos||2;
+      const max=cfg.maxPhotos||15;
+      const allowed=cfg.allowedImageTypes||['image/jpeg','image/png','image/webp'];
+      const maxBytes=(cfg.maxImageMb||10)*1024*1024;
+
+      // Keep this list server-side in production; here it only demonstrates the workflow.
+      const blockedWords=['порнография','наркотици','фалшив документ'];
+      const combined=(desc+' '+defects).toLowerCase();
+      const contactPattern=/(https?:\/\/|www\.|t\.me\/|telegram|whatsapp|viber|(?:\+359|0)8[7-9]\d[\s.-]?\d{3}[\s.-]?\d{3})/i;
+      const duplicateKeys=new Set();
+      let duplicate=false;
+      files.forEach(f=>{const k=f.name+'|'+f.size;if(duplicateKeys.has(k))duplicate=true;duplicateKeys.add(k)});
+
+      const errors=[];
+      if(files.length<min)errors.push('Добави поне '+min+' снимки.');
+      if(files.length>max)errors.push('Можеш да качиш максимум '+max+' снимки.');
+      if(files.some(f=>!allowed.includes(f.type)))errors.push('Разрешени са JPG, PNG и WebP.');
+      if(files.some(f=>f.size>maxBytes))errors.push('Всяка снимка трябва да е до '+(cfg.maxImageMb||10)+' MB.');
+      if(duplicate)errors.push('Премахни дублираните снимки.');
+      if(blockedWords.some(w=>combined.includes(w)))errors.push('Текстът съдържа съдържание, което не е разрешено.');
+      if(contactPattern.test(desc))errors.push('Не поставяй телефон, линкове или външни контакти в описанието. Използвай отделното поле за телефон и вътрешния чат.');
+
+      if(errors.length){
+        e.preventDefault();e.stopImmediatePropagation();
+        if(feedback){feedback.className='moderation-feedback error';feedback.innerHTML='<strong>Обявата още не може да бъде публикувана.</strong><br>'+errors.join('<br>');feedback.style.display='block';feedback.scrollIntoView({behavior:'smooth',block:'center'})}
+        return;
+      }
+
+      if(price>0 && price<=5){
+        localStorage.setItem('demoRiskFlag','suspicious-price');
+        if(feedback){feedback.className='moderation-feedback warn';feedback.innerHTML='<strong>Обявата ще бъде публикувана, но цената изглежда необичайно ниска.</strong><br>Ще бъде маркирана за проверка, без автоматично да се спира.';feedback.style.display='block'}
+      }else{
+        localStorage.removeItem('demoRiskFlag');
+        if(feedback){feedback.className='moderation-feedback ok';feedback.textContent='Автоматичните проверки са успешни. Публикуваме обявата веднага.';feedback.style.display='block'}
+      }
+    },true);
+  })();
+
+  // v2.2: no free daily bump. Renewal is available only in the Expired state.
+  $$('[data-renew-ad]').forEach(b=>b.addEventListener('click',()=>{
+    b.textContent='Подновена за 60 дни';
+    b.disabled=true;
+  }));
+  $$('[data-ad-action]').forEach(b=>b.addEventListener('click',()=>{
+    const a=b.dataset.adAction;
+    const msg=a==='sold'?'Обявата е маркирана като продадена.':a==='deactivate'?'Обявата е деактивирана.':'Обявата е изтрита.';
+    alert(msg);
+  }));
+
 })();
