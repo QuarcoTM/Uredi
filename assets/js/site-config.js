@@ -12,6 +12,9 @@ window.SITE_CONFIG={
   recentlyViewedEnabled:true,
   followSellerEnabled:true,
   priceDropNotificationsEnabled:true,
+  shareListingEnabled:true,
+  optionalProductLabelPhotoEnabled:true,
+  ownerListingStatsEnabled:true,
   moderation:{
     minPhotos:2,
     maxPhotos:15,

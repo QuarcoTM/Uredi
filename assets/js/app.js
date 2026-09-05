@@ -344,4 +344,66 @@
 
   document.querySelector('[data-block-user]')?.addEventListener('click',e=>{const on=e.currentTarget.dataset.blocked==='1';e.currentTarget.dataset.blocked=on?'0':'1';e.currentTarget.textContent=on?'Блокирай':'Отблокирай'});
 
+
+  // v2.4 share listing using the phone's native share sheet when available.
+  document.querySelectorAll('[data-share-listing]').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const shareData={
+        title:document.querySelector('.detail-card h1')?.textContent?.trim()||document.title,
+        text:'Виж тази обява за бяла техника',
+        url:location.href
+      };
+      try{
+        if(navigator.share){
+          await navigator.share(shareData);
+        }else if(navigator.clipboard){
+          await navigator.clipboard.writeText(location.href);
+          const old=btn.textContent;
+          btn.textContent='Линкът е копиран';
+          setTimeout(()=>btn.textContent=old,1800);
+        }else{
+          prompt('Копирай линка:',location.href);
+        }
+      }catch(err){
+        if(err?.name!=='AbortError' && navigator.clipboard){
+          try{await navigator.clipboard.writeText(location.href)}catch(e){}
+        }
+      }
+    });
+  });
+
+  // v2.4 optional product-label photo.
+  (function(){
+    const input=document.querySelector('[data-label-photo-input]');
+    const picker=document.querySelector('[data-label-photo-picker]');
+    const preview=document.querySelector('[data-label-photo-preview]');
+    if(!input||!picker||!preview)return;
+    let url=null;
+    picker.addEventListener('click',()=>input.click());
+    input.addEventListener('change',()=>{
+      if(url){try{URL.revokeObjectURL(url)}catch(e){}}
+      const file=input.files?.[0];
+      if(!file){
+        preview.style.display='none';
+        preview.innerHTML='';
+        picker.textContent='Добави снимка на етикета';
+        return;
+      }
+      if(!['image/jpeg','image/png','image/webp'].includes(file.type)){
+        alert('Разрешени са JPG, PNG и WebP.');
+        input.value='';
+        return;
+      }
+      if(file.size>10*1024*1024){
+        alert('Снимката трябва да е до 10 MB.');
+        input.value='';
+        return;
+      }
+      url=URL.createObjectURL(file);
+      preview.innerHTML='<img src="'+url+'" alt="Снимка на продуктовия етикет">';
+      preview.style.display='block';
+      picker.textContent='Смени снимката на етикета';
+    });
+  })();
+
 })();
