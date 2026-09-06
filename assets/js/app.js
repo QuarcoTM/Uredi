@@ -784,4 +784,62 @@
     },0);
   });
 
+
+  // v2.7: all "Покажи телефон" buttons reveal together.
+  (function(){
+    const buttons=[...document.querySelectorAll('[data-phone]')];
+    if(!buttons.length)return;
+    let revealed=false;
+    const reveal=()=>{
+      revealed=true;
+      const number=buttons.find(b=>b.dataset.phone)?.dataset.phone||'';
+      buttons.forEach(b=>{
+        b.textContent=number||'Телефон';
+        b.classList.add('phone-revealed');
+      });
+    };
+    buttons.forEach(b=>b.addEventListener('click',reveal));
+  })();
+
+  // v2.7: complete listing filter including seller type.
+  (function(){
+    const rows=[...document.querySelectorAll('.listing-row')];
+    if(!rows.length)return;
+
+    const panel=document.querySelector('.filter-panel');
+    const search=document.querySelector('[data-listing-search]');
+
+    const apply=()=>{
+      const text=(search?.value||'').trim().toLowerCase();
+      const brand=document.querySelector('#brandFilter')?.value||'';
+      const state=document.querySelector('#stateFilter')?.value||'';
+      const max=parseFloat(document.querySelector('#maxPrice')?.value||'999999');
+      const city=document.querySelector('#cityFilter')?.value||'';
+      const seller=document.querySelector('#sellerTypeFilter')?.value||'';
+
+      rows.forEach(r=>{
+        const hay=(r.dataset.search||'').toLowerCase();
+        const ok=
+          (!text||hay.includes(text)) &&
+          (!brand||r.dataset.brand===brand) &&
+          (!state||r.dataset.state===state) &&
+          (+r.dataset.price<=max) &&
+          (!city||r.dataset.city===city) &&
+          (!seller||r.dataset.sellerType===seller);
+        r.style.display=ok?'grid':'none';
+      });
+
+      const count=rows.filter(r=>r.style.display!=='none').length;
+      const cc=document.querySelector('[data-result-count]');
+      if(cc)cc.textContent=count+' обяви';
+    };
+
+    panel?.querySelectorAll('input,select').forEach(x=>{
+      x.addEventListener('change',apply);
+      x.addEventListener('input',apply);
+    });
+    search?.addEventListener('input',apply);
+    apply();
+  })();
+
 })();

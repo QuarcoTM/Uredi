@@ -24,6 +24,9 @@ window.SITE_CONFIG={
   guestFavoritesEnabled:true,
   categoryBrandLandingPagesEnabled:true,
   subtleUpdatedTimeEnabled:true,
+  sellerTypeFilterEnabled:true,
+  stickyListingActionsEnabled:true,
+  listingActionsAfterSpecs:true,
   moderation:{
     minPhotos:2,
     maxPhotos:15,
