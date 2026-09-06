@@ -21,6 +21,9 @@ window.SITE_CONFIG={
   presenceEnabled:true,
   priceTrendEnabled:true,
   searchSuggestionsEnabled:true,
+  guestFavoritesEnabled:true,
+  categoryBrandLandingPagesEnabled:true,
+  subtleUpdatedTimeEnabled:true,
   moderation:{
     minPhotos:2,
     maxPhotos:15,

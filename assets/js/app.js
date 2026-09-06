@@ -637,4 +637,151 @@
     });
   })();
 
+
+  // v2.6 guest favorites page: localStorage works without registration.
+  (function(){
+    const file=(location.pathname.split('/').pop()||'index.html').toLowerCase();
+    if(file!=='favorites.html')return;
+
+    const section=document.querySelector('[data-favorites-section]');
+    const empty=document.querySelector('[data-empty-template]');
+
+    const render=()=>{
+      let ids=[];
+      try{ids=JSON.parse(localStorage.getItem('favorites')||'[]')}catch(e){}
+      const cards=[...document.querySelectorAll('[data-favorite-card]')];
+      let visible=0;
+
+      cards.forEach(card=>{
+        const show=ids.includes(card.dataset.favoriteCard);
+        card.hidden=!show;
+        if(show)visible++;
+      });
+
+      if(section)section.style.display=visible?'':'none';
+      if(empty)empty.style.display=visible?'none':'';
+    };
+
+    render();
+    document.querySelectorAll('[data-favorite]').forEach(btn=>{
+      btn.addEventListener('click',()=>setTimeout(render,0));
+    });
+
+    const pageSubtitle=document.querySelector('.page-subtitle');
+    if(pageSubtitle && !document.querySelector('.favorite-guest-note')){
+      const note=document.createElement('div');
+      note.className='favorite-guest-note';
+      note.textContent='Любимите се пазят и без регистрация на това устройство.';
+      pageSubtitle.insertAdjacentElement('afterend',note);
+    }
+  })();
+
+  // v2.6 tiny price indicator opens the full dated history only on tap.
+  (function(){
+    let pop=document.querySelector('.price-history-popover');
+
+    const ensure=()=>{
+      if(pop)return pop;
+      pop=document.createElement('div');
+      pop.className='price-history-popover';
+      pop.innerHTML='<div class="price-history-popover-card"><div class="price-history-popover-head"><h3>История на цената</h3><button type="button" aria-label="Затвори">×</button></div><div class="price-history-popover-list"></div></div>';
+      document.body.appendChild(pop);
+      pop.querySelector('button').addEventListener('click',()=>pop.classList.remove('open'));
+      pop.addEventListener('click',e=>{if(e.target===pop)pop.classList.remove('open')});
+      return pop;
+    };
+
+    // Capture phase prevents the older v2.5 popup handler from also firing.
+    document.addEventListener('click',e=>{
+      const btn=e.target.closest('[data-price-history]');
+      if(!btn)return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      const p=ensure();
+      const list=p.querySelector('.price-history-popover-list');
+      const parsed=(btn.dataset.priceHistory||'').split(';').filter(Boolean).map(x=>{
+        const [price,date]=x.split('|');
+        const value=parseFloat((price||'').replace(/[^\d.,]/g,'').replace(',','.'))||0;
+        return {price:price||'',date:date||'',value};
+      });
+
+      list.innerHTML=parsed.map((row,i)=>{
+        let cls='same',symbol='•';
+        if(i>0){
+          const prev=parsed[i-1].value;
+          if(row.value<prev){cls='down';symbol='↓'}
+          else if(row.value>prev){cls='up';symbol='↑'}
+        }
+        return `<div><span>${row.date}</span><strong>${row.price}</strong><em class="price-history-change ${cls}">${symbol}</em></div>`;
+      }).join('') || '<div><span>Няма предишни промени.</span><strong>—</strong><em class="price-history-change same">•</em></div>';
+
+      p.classList.add('open');
+    },true);
+  })();
+
+  // v2.6 count phone reveals locally; useful later when stats move to the backend.
+  document.querySelectorAll('[data-phone-reveal]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const key='marketPhoneReveals';
+      let n=parseInt(localStorage.getItem(key)||'0',10)||0;
+      localStorage.setItem(key,String(n+1));
+    },{once:true});
+  });
+
+  // v2.6 category / brand landing pages.
+  (function(){
+    const body=document.body;
+    const kind=body?.dataset?.landingKind;
+    if(!kind)return;
+
+    const params=new URLSearchParams(location.search);
+    const name=(params.get('name')||'').trim();
+    const brand=(params.get('brand')||'').trim();
+
+    const title=document.querySelector('[data-landing-title]');
+    const subtitle=document.querySelector('[data-landing-subtitle]');
+    const label=document.querySelector('[data-landing-label]');
+    const links=document.querySelector('[data-landing-links]');
+
+    const categories=['Перални','Сушилни','Хладилници','Печки','Фризери','Съдомиялни','Фурни','Котлони'];
+    const brands=['Bosch','Samsung','LG','AEG','Siemens'];
+
+    if(kind==='category'){
+      const heading=brand?`${name} ${brand}`:(name||'Категория');
+      if(title)title.textContent=heading;
+      if(subtitle)subtitle.textContent=`Актуални обяви за ${heading.toLowerCase()} с директен контакт с продавача.`;
+      if(label)label.textContent='Популярни марки:';
+      if(links)links.innerHTML=brands.map(b=>`<a class="${b===brand?'active':''}" href="category.html?name=${encodeURIComponent(name)}&brand=${encodeURIComponent(b)}">${b}</a>`).join('');
+      document.title=heading+' · Пазар за бяла техника';
+    }
+
+    if(kind==='brand'){
+      const heading=name?`${name} · бяла техника`:'Марка';
+      if(title)title.textContent=heading;
+      if(subtitle)subtitle.textContent=`Разгледай актуалните обяви за ${name||'избраната марка'} по категории.`;
+      if(label)label.textContent='Категории:';
+      if(links)links.innerHTML=categories.slice(0,6).map(c=>`<a href="category.html?name=${encodeURIComponent(c)}&brand=${encodeURIComponent(name)}">${c}</a>`).join('');
+      document.title=heading+' · Пазар за бяла техника';
+    }
+  })();
+
+  // v2.6 point search suggestions to the category/brand landing pages.
+  document.addEventListener('focusin',e=>{
+    const box=e.target.closest?.('.header-search,.mobile-header-search');
+    if(!box)return;
+    setTimeout(()=>{
+      box.querySelectorAll('.search-suggest a').forEach(a=>{
+        const small=a.querySelector('small')?.textContent?.trim();
+        const label=a.querySelector('span')?.textContent?.trim();
+        if(!label)return;
+        if(small==='Марка')a.href='brand.html?name='+encodeURIComponent(label);
+        if(small==='Категория'){
+          const category=label.replace(/\s+(Bosch|Samsung|LG|AEG|Siemens)$/,'');
+          a.href='category.html?name='+encodeURIComponent(category);
+        }
+      });
+    },0);
+  });
+
 })();
