@@ -1,15 +1,16 @@
-TEHNIKA v2.5
+TEHNIKA v2.6
 
-Accepted additions:
-- Real mobile photo gallery: swipe, fullscreen, image count, pinch zoom.
-- PWA setup for Android and iPhone/iPad Home Screen.
-- Web Push permission UI and service worker; backend delivery will be connected in v3.x.
-- Online-now / last-active direction and average response-time UI.
-- Price movement indicator like a classifieds marketplace:
-  green down / red up; tap to see dated price history.
-- Light search suggestion submenu for brand/model/category/city.
-- All accepted v2.4 features remain.
+Changes:
+- Removed the permanently visible price-history panel from the listing page.
+- Price changes now show only as a tiny green downward or red upward line/arrow.
+- No amount is displayed beside the price.
+- Tapping the indicator opens the dated price history and shows whether each change went up/down.
+- Added subtle "published / updated" metadata.
+- "Покажи телефон" remains concealed until tapped and phone reveals are counted locally for future backend stats.
+- Favorites now genuinely work for guests on the current device.
+- Recently viewed already remains guest/local.
+- Added category.html and brand.html landing templates, including light contextual submenus.
+- Homepage category links open category landing pages.
+- Brand in listing specs links to brand landing page.
 
-Important:
-Remote push delivery still needs the real backend and push subscription storage.
-This package prepares the browser/PWA/service-worker side without pretending a backend exists.
+Still frontend prototype: backend will later provide real listings, real price changes, account synchronization and SEO-friendly permanent URLs.

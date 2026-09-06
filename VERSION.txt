@@ -1,2 +1,2 @@
-tehnika v2.5
-Gallery + PWA + push prep + presence + price trends + search suggestions
+tehnika v2.6
+Subtle price-history indicator + guest favorites + category/brand pages
