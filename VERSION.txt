@@ -1,2 +1,2 @@
-tehnika v2.7
-Listing actions placement + clearer price trend + sticky contact + seller filter
+tehnika v2.9
+Share preview + phone tap stats + robust photo preparation
