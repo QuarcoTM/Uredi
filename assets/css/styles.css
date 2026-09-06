@@ -1863,3 +1863,85 @@ main{background:#f4f6f8}
     color:#fff;
   }
 }
+
+
+/* ===== v2.8 direct call + icon actions ===== */
+.icon-action-button{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:7px!important;
+  text-decoration:none!important;
+}
+.action-icon{
+  display:inline-flex;
+  width:20px;
+  height:20px;
+  flex:0 0 20px;
+}
+.action-icon svg{
+  width:100%;
+  height:100%;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.icon-action-label{
+  font-size:inherit;
+  font-weight:inherit;
+}
+.phone-action-button{
+  color:#175dac!important;
+}
+.message-action-button{
+  color:#fff!important;
+}
+.listing-action-panel .message-action-button{
+  background:#1767d9!important;
+  border-color:#1767d9!important;
+}
+.listing-action-panel .phone-action-button,
+.mobile-top-contact-buttons .phone-action-button,
+.seller-phone-bottom.phone-action-button{
+  background:#fff!important;
+  color:#175dac!important;
+  border:1px solid #cdd8e4!important;
+}
+.mobile-contact-icon-grid>*{
+  min-height:42px;
+}
+.listing-sticky-actions .sticky-icon-only{
+  width:44px!important;
+  min-width:44px!important;
+  height:44px!important;
+  padding:0!important;
+  border-radius:12px!important;
+}
+.listing-sticky-actions .sticky-phone{
+  border:1px solid #cfd9e3!important;
+  background:#fff!important;
+  color:#175dac!important;
+}
+.listing-sticky-actions .sticky-message{
+  border:1px solid #1767d9!important;
+  background:#1767d9!important;
+  color:#fff!important;
+}
+.listing-sticky-actions .sticky-icon-only .action-icon{
+  width:22px;
+  height:22px;
+  flex-basis:22px;
+}
+@media(max-width:760px){
+  .listing-sticky-actions{
+    grid-template-columns:1fr 44px 44px!important;
+  }
+  .mobile-top-contact-buttons .icon-action-button{
+    font-size:11px!important;
+  }
+  .mobile-top-contact-buttons .action-icon{
+    width:19px;height:19px;flex-basis:19px;
+  }
+}
