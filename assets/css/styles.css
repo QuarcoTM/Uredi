@@ -1626,3 +1626,240 @@ main{background:#f4f6f8}
   .landing-mini-menu{margin:8px 0 13px;gap:6px}
   .landing-mini-menu a{height:24px;padding:0 7px;font-size:9px}
 }
+
+
+/* ===== v2.7 price placement / listing actions / mobile contact / seller filter ===== */
+
+/* Price + trend must read as one visual unit everywhere. */
+.price-with-trend{
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:5px;
+  line-height:1;
+}
+.product-meta .price-with-trend{margin-right:auto}
+.listing-price-with-trend{
+  align-self:flex-end;
+  justify-content:flex-end;
+}
+.detail-price-with-trend{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin:8px 0 16px;
+}
+.detail-price-with-trend .detail-price{margin:0}
+
+/* More visible than v2.6, but still only a clean direction mark – no amount. */
+.price-trend{
+  flex:0 0 14px!important;
+  width:14px!important;
+  min-width:14px!important;
+  height:22px!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:5px!important;
+  background:transparent!important;
+  opacity:.95!important;
+}
+.price-trend:before{
+  left:5px!important;
+  width:3px!important;
+  height:14px!important;
+  border-radius:4px!important;
+}
+.price-trend:after{
+  left:2px!important;
+  border-left-width:4px!important;
+  border-right-width:4px!important;
+}
+.price-trend-down:before{top:2px!important;background:#15905a!important}
+.price-trend-down:after{
+  bottom:0!important;
+  border-top:5px solid #15905a!important;
+}
+.price-trend-up:before{bottom:2px!important;background:#ca413b!important}
+.price-trend-up:after{
+  top:0!important;
+  border-bottom:5px solid #ca413b!important;
+}
+
+/* Whole action tab immediately under Characteristics. */
+.listing-action-panel{
+  margin-top:12px;
+  padding:14px;
+  border:1px solid #d8e1e9;
+  border-radius:12px;
+  background:#f8fafc;
+}
+.listing-action-panel-head{
+  margin-bottom:10px;
+  color:#66758a;
+  font-size:10px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+.listing-action-panel .detail-actions{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.listing-action-panel .detail-actions .report-link{
+  grid-column:1/-1;
+  margin-top:2px;
+}
+
+/* Main right-side detail summary is cleaner now that actions live below specs. */
+.detail-card>.detail-actions{display:none}
+
+/* Easy phone lower in seller panel. */
+.seller-phone-bottom{
+  width:100%;
+  margin-top:10px;
+}
+
+/* Upper contact block for mobile only. */
+.listing-mobile-top-contact{display:none}
+
+/* Sticky mobile action bar – sits above the existing 5-item bottom navigation. */
+.listing-sticky-actions{display:none}
+
+/* Seller filter is a normal filter, no special visual weight. */
+#sellerTypeFilter{font-weight:600}
+
+@media(max-width:760px){
+  body:has(.listing-sticky-actions){padding-bottom:126px!important}
+
+  /* Listing row price stays top-right as before, but indicator is now glued to it. */
+  .listing-price-with-trend{
+    position:absolute;
+    right:12px;
+    top:12px;
+    align-items:center;
+  }
+  .listing-price-with-trend .price{
+    position:static!important;
+    right:auto!important;
+    top:auto!important;
+    font-size:18px;
+  }
+
+  .product-meta .price-with-trend{gap:4px}
+  .price-trend{
+    width:13px!important;
+    min-width:13px!important;
+    flex-basis:13px!important;
+    height:20px!important;
+  }
+  .price-trend:before{height:12px!important}
+
+  .listing-mobile-top-contact{
+    display:block;
+    margin-top:10px;
+    padding:12px;
+    border:1px solid #d9e2eb;
+    border-radius:11px;
+    background:#f8fafc;
+  }
+  .mobile-top-price{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin-bottom:9px;
+  }
+  .mobile-top-price>span{
+    font-size:22px;
+    font-weight:900;
+    letter-spacing:-.02em;
+    color:#10192d;
+  }
+  .mobile-top-contact-buttons{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:7px;
+  }
+  .mobile-top-contact-buttons>*{
+    width:100%;
+    min-width:0;
+    height:40px;
+    padding:0 9px;
+    font-size:11px;
+  }
+
+  .listing-action-panel{
+    margin-top:10px;
+    padding:11px;
+    border-radius:11px;
+  }
+  .listing-action-panel-head{margin-bottom:8px}
+  .listing-action-panel .detail-actions{
+    grid-template-columns:1fr 1fr;
+    gap:7px;
+  }
+  .listing-action-panel .detail-actions>*{
+    width:100%;
+    min-width:0;
+    height:40px;
+    padding:0 8px;
+    font-size:10.5px;
+  }
+  .listing-action-panel .detail-actions .report-link{
+    height:auto;
+    min-height:30px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .listing-sticky-actions{
+    position:fixed;
+    left:0;right:0;
+    bottom:62px;
+    z-index:69;
+    height:58px;
+    display:grid;
+    grid-template-columns:auto 1fr 1fr;
+    align-items:center;
+    gap:7px;
+    padding:7px 10px;
+    border-top:1px solid #d8e0e8;
+    background:rgba(250,251,252,.97);
+    box-shadow:0 -6px 20px rgba(21,39,62,.08);
+    backdrop-filter:blur(10px);
+  }
+  .sticky-price{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    padding-right:3px;
+  }
+  .sticky-price strong{
+    font-size:17px;
+    white-space:nowrap;
+    color:#111c2d;
+  }
+  .sticky-phone,.sticky-message{
+    height:42px;
+    border-radius:9px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0 9px;
+    font-size:10.5px;
+    font-weight:850;
+    text-align:center;
+  }
+  .sticky-phone{
+    border:1px solid #cdd8e4;
+    background:#fff;
+    color:#1f354e;
+  }
+  .sticky-message{
+    border:1px solid #1767d9;
+    background:#1767d9;
+    color:#fff;
+  }
+}
