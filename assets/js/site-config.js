@@ -36,5 +36,15 @@ window.SITE_CONFIG={
   antiSpam:{
     listingsPerHour:20,
     newConversationsPerHour:60
+  },
+  sharePreviewEnabled:true,
+  phoneTapStatsEnabled:true,
+  imageProcessing:{
+    maxSourceMb:20,
+    maxDimension:1920,
+    quality:0.84,
+    exactDuplicateHash:true,
+    reorder:true,
+    progress:true
   }
 };

@@ -256,7 +256,7 @@
       const desc=($('[data-ad-description]')?.value||'').trim();
       const defects=($('[data-ad-defects]')?.value||'').trim();
       const price=+$('[data-ad-price]')?.value||0;
-      const files=[...($('[data-photo-input]')?.files||[])];
+      const files=(window.marketPreparedPhotos?.map(x=>x.file)||[...($('[data-photo-input]')?.files||[])]);
       const cfg=(window.SITE_CONFIG||{}).moderation||{};
       const min=cfg.minPhotos||2;
       const max=cfg.maxPhotos||15;
@@ -331,16 +331,7 @@
   document.querySelector('[data-submit-report]')?.addEventListener('click',()=>{const x=document.querySelector('[data-report-success]');if(x){x.style.display='block';x.scrollIntoView({behavior:'smooth',block:'center'})}});
   document.querySelectorAll('[data-history-back]').forEach(b=>b.addEventListener('click',()=>history.length>1?history.back():location.assign('index.html')));
 
-  (function(){
-    const input=document.querySelector('[data-photo-input]'),grid=document.querySelector('[data-photo-preview]'),counter=document.querySelector('[data-photo-counter]'),status=document.querySelector('[data-photo-status]');
-    if(!input||!grid)return;let items=[];
-    const draw=()=>{if(counter)counter.textContent=items.length+'/15';if(status)status.textContent=items.length+'/15 снимки · минимум 2';if(!items.length){grid.innerHTML='<div class="photo-preview-empty">Избраните снимки ще се появят тук. Първата ще бъде основна.</div>';return}grid.innerHTML=items.map((it,i)=>`<div class="photo-preview-card"><img src="${it.url}" alt="">${i===0?'<span class="photo-label">Основна</span>':''}<div class="photo-move"><button type="button" data-photo-left="${i}" ${i===0?'disabled':''}>←</button><button type="button" data-photo-right="${i}" ${i===items.length-1?'disabled':''}>→</button></div></div>`).join('')};
-    input.addEventListener('change',()=>{items.forEach(x=>{try{URL.revokeObjectURL(x.url)}catch(e){}});items=[...input.files].slice(0,15).map(f=>({file:f,url:URL.createObjectURL(f)}));draw()});
-    grid.addEventListener('click',e=>{const l=e.target.closest('[data-photo-left]'),rr=e.target.closest('[data-photo-right]');if(l){const i=+l.dataset.photoLeft;if(i>0){[items[i-1],items[i]]=[items[i],items[i-1]];draw()}}if(rr){const i=+rr.dataset.photoRight;if(i<items.length-1){[items[i+1],items[i]]=[items[i],items[i+1]];draw()}}});
-    const modal=document.querySelector('[data-ad-preview-modal]');
-    document.querySelector('[data-ad-preview]')?.addEventListener('click',()=>{if(!modal)return;const ph=modal.querySelector('[data-preview-photo]');if(ph)ph.innerHTML=items[0]?`<img src="${items[0].url}" alt="">`:'Основна снимка';modal.querySelector('[data-preview-price]').textContent=(document.querySelector('[data-ad-price]')?.value||'—')+' €';modal.querySelector('[data-preview-description]').textContent=document.querySelector('[data-ad-description]')?.value||'Описанието ще се покаже тук.';modal.classList.add('open');modal.setAttribute('aria-hidden','false')});
-    modal?.querySelectorAll('[data-close-preview]').forEach(x=>x.addEventListener('click',()=>{modal.classList.remove('open');modal.setAttribute('aria-hidden','true')}));
-  })();
+
 
   document.querySelector('[data-block-user]')?.addEventListener('click',e=>{const on=e.currentTarget.dataset.blocked==='1';e.currentTarget.dataset.blocked=on?'0':'1';e.currentTarget.textContent=on?'Блокирай':'Отблокирай'});
 
@@ -350,7 +341,7 @@
     btn.addEventListener('click',async()=>{
       const shareData={
         title:document.querySelector('.detail-card h1')?.textContent?.trim()||document.title,
-        text:'Виж тази обява за бяла техника',
+        text:(document.querySelector('.detail-card h1')?.textContent?.trim()||'Обява')+' · '+(document.querySelector('.detail-price')?.textContent?.trim()||''),
         url:location.href
       };
       try{
@@ -814,6 +805,402 @@
     });
     search?.addEventListener('input',apply);
     apply();
+  })();
+
+
+  // v2.9 phone-tap statistics. Counts button taps, not completed calls.
+  (function phoneTapStats(){
+    const keyPrefix='marketPhoneTaps:';
+    document.querySelectorAll('[data-phone-track]').forEach(link=>{
+      link.addEventListener('click',()=>{
+        const id=link.dataset.phoneTrack||document.body.dataset.listingId||'listing';
+        const key=keyPrefix+id;
+        const now=(parseInt(localStorage.getItem(key)||'0',10)||0)+1;
+        localStorage.setItem(key,String(now));
+      });
+    });
+
+    document.querySelectorAll('[data-phone-stat]').forEach(el=>{
+      const id=el.dataset.phoneStat;
+      const base=parseInt(el.dataset.base||'0',10)||0;
+      const extra=parseInt(localStorage.getItem(keyPrefix+id)||'0',10)||0;
+      el.textContent=String(base+extra);
+    });
+
+    const total=document.querySelector('[data-total-phone-stat]');
+    if(total){
+      const base=parseInt(total.dataset.base||'0',10)||0;
+      let extra=0;
+      for(let i=0;i<localStorage.length;i++){
+        const k=localStorage.key(i);
+        if(k&&k.startsWith(keyPrefix)) extra+=parseInt(localStorage.getItem(k)||'0',10)||0;
+      }
+      total.textContent=String(base+extra);
+    }
+  })();
+
+  // v2.9 robust photo preparation:
+  // exact SHA-256 duplicate detection, client-side optimization, progress,
+  // retry for one failed photo, desktop drag/drop and mobile long-press sorting.
+  (function photoManagerV29(){
+    const input=document.querySelector('[data-photo-input]');
+    const grid=document.querySelector('[data-photo-preview]');
+    const counter=document.querySelector('[data-photo-counter]');
+    const status=document.querySelector('[data-photo-status]');
+    if(!input||!grid)return;
+
+    const cfg=(window.SITE_CONFIG||{}).imageProcessing||{};
+    const maxPhotos=((window.SITE_CONFIG||{}).moderation||{}).maxPhotos||15;
+    const maxSourceBytes=(cfg.maxSourceMb||20)*1024*1024;
+    const maxDimension=cfg.maxDimension||1920;
+    const quality=cfg.quality||0.84;
+    const allowed=['image/jpeg','image/png','image/webp'];
+    let items=[];
+    let seq=0;
+    let desktopDragId=null;
+    let touchDragId=null;
+    let touchTimer=null;
+    let lastTouchTarget=null;
+
+    window.marketPreparedPhotos=[];
+
+    const escapeHTML=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+    const formatBytes=n=>{
+      if(n<1024)return n+' B';
+      if(n<1024*1024)return (n/1024).toFixed(n<100*1024?1:0)+' KB';
+      return (n/1024/1024).toFixed(1)+' MB';
+    };
+    const readyItems=()=>items.filter(x=>x.status==='ready');
+
+    const syncPrepared=()=>{
+      window.marketPreparedPhotos=readyItems().map(x=>({id:x.id,file:x.file,hash:x.hash,original:x.source}));
+      try{
+        const dt=new DataTransfer();
+        readyItems().forEach(x=>dt.items.add(x.file));
+        input.files=dt.files;
+      }catch(e){}
+    };
+
+    const updateSummary=()=>{
+      const ready=items.filter(x=>x.status==='ready').length;
+      const processing=items.filter(x=>x.status==='processing').length;
+      const failed=items.filter(x=>x.status==='failed'||x.status==='duplicate').length;
+      if(counter)counter.textContent=ready+'/'+maxPhotos;
+      if(status){
+        let t=ready+'/'+maxPhotos+' готови снимки · минимум 2';
+        if(processing)t+=' · '+processing+' се подготвят';
+        if(failed)t+=' · '+failed+' изискват внимание';
+        status.textContent=t;
+      }
+    };
+
+    const firstReadyId=()=>readyItems()[0]?.id||null;
+
+    const draw=()=>{
+      updateSummary();
+      if(!items.length){
+        grid.innerHTML='<div class="photo-preview-empty">Избраните снимки ще се появят тук. Първата ще бъде основна.</div>';
+        syncPrepared();
+        return;
+      }
+      const mainId=firstReadyId();
+      grid.innerHTML=items.map((it,i)=>{
+        const cls='photo-preview-card '+(
+          it.status==='processing'?'photo-processing':
+          it.status==='failed'?'photo-error':
+          it.status==='duplicate'?'photo-duplicate':''
+        );
+        const main=(it.id===mainId&&it.status==='ready')?'<span class="photo-label">Основна</span>':'';
+        const image=it.url?`<img src="${it.url}" alt="">`:'';
+        const progress=it.status==='processing'
+          ?`<span class="photo-processing-label">${escapeHTML(it.step||'Подготовка…')}</span><div class="photo-progress"><span style="width:${Math.max(4,it.progress||4)}%"></span></div>`
+          :'';
+        const err=(it.status==='failed'||it.status==='duplicate')
+          ?`<div class="photo-file-meta"><span class="photo-status-error">${escapeHTML(it.error||'Грешка')}</span><button type="button" class="photo-retry" data-photo-retry="${it.id}">Опитай пак</button></div>`
+          :`<div class="photo-file-meta"><strong>${escapeHTML(it.source?.name||'Снимка')}</strong><span>${it.status==='ready' ? escapeHTML(it.sizeText||'Готова за качване') : 'Подготовка…'}</span></div>`;
+        const move=it.status==='ready'
+          ?`<div class="photo-move"><button type="button" data-photo-left="${it.id}" ${it.id===readyItems()[0]?.id?'disabled':''}>←</button><button type="button" data-photo-right="${it.id}" ${it.id===readyItems()[readyItems().length-1]?.id?'disabled':''}>→</button></div>`
+          :'';
+        return `<div class="${cls}" data-photo-item="${it.id}" draggable="${it.status==='ready'?'true':'false'}">
+          <div class="photo-preview-image-wrap">
+            ${image}${main}${progress}
+            <div class="photo-card-top-actions">
+              ${it.status==='ready'?`<button type="button" class="photo-drag-handle" data-photo-drag="${it.id}" aria-label="Задръж и премести">⋮⋮</button>`:''}
+              <button type="button" class="photo-remove" data-photo-remove="${it.id}" aria-label="Премахни снимката">×</button>
+            </div>
+          </div>
+          ${err}${move}
+        </div>`;
+      }).join('');
+      syncPrepared();
+    };
+
+    const setItem=(item, patch)=>{
+      Object.assign(item,patch);
+      draw();
+    };
+
+    const hashFile=async file=>{
+      if(!window.crypto?.subtle)return null;
+      const buffer=await file.arrayBuffer();
+      const digest=await crypto.subtle.digest('SHA-256',buffer);
+      return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
+    };
+
+    const loadImageSource=async file=>{
+      if('createImageBitmap' in window){
+        try{
+          const bmp=await createImageBitmap(file,{imageOrientation:'from-image'});
+          return {source:bmp,width:bmp.width,height:bmp.height,cleanup:()=>bmp.close?.()};
+        }catch(e){
+          try{
+            const bmp=await createImageBitmap(file);
+            return {source:bmp,width:bmp.width,height:bmp.height,cleanup:()=>bmp.close?.()};
+          }catch(e2){}
+        }
+      }
+      return await new Promise((resolve,reject)=>{
+        const url=URL.createObjectURL(file);
+        const img=new Image();
+        img.onload=()=>resolve({source:img,width:img.naturalWidth,height:img.naturalHeight,cleanup:()=>URL.revokeObjectURL(url)});
+        img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Снимката не може да бъде прочетена.'))};
+        img.src=url;
+      });
+    };
+
+    const canvasBlob=(canvas,type,q)=>new Promise((resolve,reject)=>{
+      canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Снимката не може да бъде оптимизирана.')),type,q);
+    });
+
+    const optimizeImage=async(item)=>{
+      setItem(item,{progress:42,step:'Отваряне…'});
+      const loaded=await loadImageSource(item.source);
+      try{
+        const scale=Math.min(1,maxDimension/Math.max(loaded.width,loaded.height));
+        const width=Math.max(1,Math.round(loaded.width*scale));
+        const height=Math.max(1,Math.round(loaded.height*scale));
+
+        if(scale===1 && item.source.size<=1200*1024){
+          setItem(item,{progress:82,step:'Проверка…'});
+          return item.source;
+        }
+
+        setItem(item,{progress:64,step:'Оптимизиране…'});
+        const canvas=document.createElement('canvas');
+        canvas.width=width;canvas.height=height;
+        const ctx=canvas.getContext('2d',{alpha:true});
+        ctx.imageSmoothingEnabled=true;
+        ctx.imageSmoothingQuality='high';
+        ctx.drawImage(loaded.source,0,0,width,height);
+
+        let blob;
+        try{
+          blob=await canvasBlob(canvas,'image/webp',quality);
+        }catch(e){
+          blob=await canvasBlob(canvas,'image/jpeg',quality);
+        }
+        setItem(item,{progress:88,step:'Финализиране…'});
+
+        if(blob.size>=item.source.size*0.97)return item.source;
+        const base=(item.source.name||'photo').replace(/\.[^.]+$/,'');
+        const ext=blob.type==='image/webp'?'.webp':'.jpg';
+        return new File([blob],base+ext,{type:blob.type,lastModified:Date.now()});
+      } finally {
+        loaded.cleanup?.();
+      }
+    };
+
+    const processItem=async(item)=>{
+      if(item.url){try{URL.revokeObjectURL(item.url)}catch(e){}}
+      item.url=URL.createObjectURL(item.source);
+      setItem(item,{status:'processing',progress:8,step:'Проверка…',error:''});
+
+      try{
+        if(!allowed.includes(item.source.type))throw new Error('Разрешени са JPG, PNG и WebP.');
+        if(item.source.size>maxSourceBytes)throw new Error('Снимката е прекалено голяма за обработка.');
+
+        setItem(item,{progress:20,step:'Проверка за дубликат…'});
+        item.hash=await hashFile(item.source);
+        if(item.hash){
+          const duplicate=items.some(x=>x!==item && x.hash===item.hash && x.status==='ready');
+          if(duplicate){
+            setItem(item,{status:'duplicate',progress:100,error:'Тази снимка вече е добавена.'});
+            return;
+          }
+        }
+
+        const optimized=await optimizeImage(item);
+        if(item.url){try{URL.revokeObjectURL(item.url)}catch(e){}}
+        item.file=optimized;
+        item.url=URL.createObjectURL(optimized);
+        const saved=item.source.size>0?Math.max(0,Math.round((1-optimized.size/item.source.size)*100)):0;
+        const sizeText=optimized===item.source
+          ?formatBytes(optimized.size)+' · готова'
+          :formatBytes(item.source.size)+' → '+formatBytes(optimized.size)+(saved>0?' · −'+saved+'%':'');
+        setItem(item,{status:'ready',progress:100,step:'Готова',sizeText});
+      }catch(err){
+        setItem(item,{status:'failed',progress:100,error:err?.message||'Снимката не можа да бъде подготвена.'});
+      }
+    };
+
+    const addFiles=async files=>{
+      const activeCount=items.filter(x=>!['failed','duplicate'].includes(x.status)).length;
+      const room=Math.max(0,maxPhotos-activeCount);
+      const incoming=[...files].slice(0,room);
+      if(!incoming.length){
+        if(status)status.textContent='Можеш да качиш максимум '+maxPhotos+' снимки.';
+        return;
+      }
+      for(const file of incoming){
+        const item={id:'ph'+(++seq),source:file,file:null,url:null,hash:null,status:'processing',progress:2,step:'Добавяне…',error:''};
+        items.push(item);
+        draw();
+        await processItem(item); // sequential by design: safer on phones with large camera photos
+      }
+    };
+
+    // Capture phase prevents the older simple handlers from also rebuilding the grid.
+    input.addEventListener('change',e=>{
+      const files=[...input.files];
+      e.stopImmediatePropagation();
+      addFiles(files);
+    },true);
+
+    grid.addEventListener('click',e=>{
+      const remove=e.target.closest('[data-photo-remove]');
+      const retry=e.target.closest('[data-photo-retry]');
+      const left=e.target.closest('[data-photo-left]');
+      const right=e.target.closest('[data-photo-right]');
+
+      if(remove){
+        const id=remove.dataset.photoRemove;
+        const idx=items.findIndex(x=>x.id===id);
+        if(idx>=0){
+          if(items[idx].url){try{URL.revokeObjectURL(items[idx].url)}catch(e){}}
+          items.splice(idx,1);draw();
+        }
+        return;
+      }
+      if(retry){
+        const it=items.find(x=>x.id===retry.dataset.photoRetry);
+        if(it)processItem(it);
+        return;
+      }
+
+      const moveReady=(id,dir)=>{
+        const ordered=readyItems();
+        const pos=ordered.findIndex(x=>x.id===id);
+        const other=ordered[pos+dir];
+        if(pos<0||!other)return;
+        const a=items.findIndex(x=>x.id===id),b=items.findIndex(x=>x.id===other.id);
+        [items[a],items[b]]=[items[b],items[a]];
+        draw();
+      };
+      if(left)moveReady(left.dataset.photoLeft,-1);
+      if(right)moveReady(right.dataset.photoRight,1);
+    });
+
+    // Desktop drag/drop.
+    grid.addEventListener('dragstart',e=>{
+      const card=e.target.closest('[data-photo-item]');
+      if(!card||card.getAttribute('draggable')!=='true')return;
+      desktopDragId=card.dataset.photoItem;
+      card.classList.add('dragging');
+      if(e.dataTransfer)e.dataTransfer.effectAllowed='move';
+    });
+    grid.addEventListener('dragover',e=>{if(desktopDragId)e.preventDefault()});
+    grid.addEventListener('drop',e=>{
+      if(!desktopDragId)return;
+      e.preventDefault();
+      const target=e.target.closest('[data-photo-item]');
+      const from=items.findIndex(x=>x.id===desktopDragId);
+      const to=target?items.findIndex(x=>x.id===target.dataset.photoItem):-1;
+      if(from>=0&&to>=0&&from!==to){
+        const [moved]=items.splice(from,1);
+        items.splice(to,0,moved);
+      }
+      desktopDragId=null;draw();
+    });
+    grid.addEventListener('dragend',()=>{desktopDragId=null;draw()});
+
+    // Mobile: hold the grip for a short moment, then drag over another photo.
+    grid.addEventListener('pointerdown',e=>{
+      const handle=e.target.closest('[data-photo-drag]');
+      if(!handle)return;
+      const id=handle.dataset.photoDrag;
+      clearTimeout(touchTimer);
+      touchTimer=setTimeout(()=>{
+        touchDragId=id;
+        lastTouchTarget=id;
+        document.body.classList.add('photo-touch-sorting');
+        if(navigator.vibrate)try{navigator.vibrate(20)}catch(err){}
+      },280);
+    });
+    document.addEventListener('pointermove',e=>{
+      if(!touchDragId)return;
+      e.preventDefault();
+      const under=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('[data-photo-item]');
+      const targetId=under?.dataset.photoItem;
+      if(!targetId||targetId===lastTouchTarget||targetId===touchDragId)return;
+      const from=items.findIndex(x=>x.id===touchDragId);
+      const to=items.findIndex(x=>x.id===targetId);
+      if(from>=0&&to>=0){
+        const [moved]=items.splice(from,1);
+        items.splice(to,0,moved);
+        lastTouchTarget=targetId;
+        draw();
+      }
+    },{passive:false});
+    const endTouch=()=>{
+      clearTimeout(touchTimer);
+      touchDragId=null;
+      lastTouchTarget=null;
+      document.body.classList.remove('photo-touch-sorting');
+    };
+    document.addEventListener('pointerup',endTouch);
+    document.addEventListener('pointercancel',endTouch);
+
+    // Product-label photo uses the same safe optimization path.
+    const labelInput=document.querySelector('[data-label-photo-input]');
+    const labelPreview=document.querySelector('[data-label-photo-preview]');
+    const labelPicker=document.querySelector('[data-label-photo-picker]');
+    if(labelInput&&labelPreview&&labelPicker){
+      labelInput.addEventListener('change',async e=>{
+        const file=labelInput.files?.[0];
+        e.stopImmediatePropagation();
+        if(!file)return;
+        const tmp={id:'label',source:file,file:null,url:null,hash:null,status:'processing',progress:5,step:'Подготовка…'};
+        try{
+          if(!allowed.includes(file.type))throw new Error('Разрешени са JPG, PNG и WebP.');
+          if(file.size>maxSourceBytes)throw new Error('Снимката е прекалено голяма.');
+          const optimized=await optimizeImage(tmp);
+          window.marketPreparedLabelPhoto=optimized;
+          labelPreview.innerHTML='<img src="'+URL.createObjectURL(optimized)+'" alt="Снимка на продуктовия етикет"><div class="label-photo-hint">'+formatBytes(file.size)+' → '+formatBytes(optimized.size)+'</div>';
+          labelPreview.style.display='block';
+          labelPicker.textContent='Смени снимката на етикета';
+        }catch(err){
+          alert(err?.message||'Снимката не можа да бъде обработена.');
+        }
+      },true);
+    }
+
+    // Preview modal uses the first prepared photo.
+    const modal=document.querySelector('[data-ad-preview-modal]');
+    document.querySelector('[data-ad-preview]')?.addEventListener('click',()=>{
+      if(!modal)return;
+      const first=readyItems()[0];
+      const ph=modal.querySelector('[data-preview-photo]');
+      if(ph)ph.innerHTML=first?`<img src="${first.url}" alt="">`:'Основна снимка';
+      modal.querySelector('[data-preview-price]').textContent=(document.querySelector('[data-ad-price]')?.value||'—')+' €';
+      modal.querySelector('[data-preview-description]').textContent=document.querySelector('[data-ad-description]')?.value||'Описанието ще се покаже тук.';
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden','false');
+    });
+    modal?.querySelectorAll('[data-close-preview]').forEach(x=>x.addEventListener('click',()=>{
+      modal.classList.remove('open');modal.setAttribute('aria-hidden','true');
+    }));
+
+    draw();
   })();
 
 })();
