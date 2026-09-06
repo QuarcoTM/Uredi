@@ -720,15 +720,6 @@
     },true);
   })();
 
-  // v2.6 count phone reveals locally; useful later when stats move to the backend.
-  document.querySelectorAll('[data-phone-reveal]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const key='marketPhoneReveals';
-      let n=parseInt(localStorage.getItem(key)||'0',10)||0;
-      localStorage.setItem(key,String(n+1));
-    },{once:true});
-  });
-
   // v2.6 category / brand landing pages.
   (function(){
     const body=document.body;
@@ -783,23 +774,6 @@
       });
     },0);
   });
-
-
-  // v2.7: all "Покажи телефон" buttons reveal together.
-  (function(){
-    const buttons=[...document.querySelectorAll('[data-phone]')];
-    if(!buttons.length)return;
-    let revealed=false;
-    const reveal=()=>{
-      revealed=true;
-      const number=buttons.find(b=>b.dataset.phone)?.dataset.phone||'';
-      buttons.forEach(b=>{
-        b.textContent=number||'Телефон';
-        b.classList.add('phone-revealed');
-      });
-    };
-    buttons.forEach(b=>b.addEventListener('click',reveal));
-  })();
 
   // v2.7: complete listing filter including seller type.
   (function(){
