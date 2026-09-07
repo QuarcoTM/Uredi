@@ -63,5 +63,14 @@ window.SITE_CONFIG={
   offlineBannerEnabled:true,
   toastFeedbackEnabled:true,
   safeUndoEnabled:true,
-  duplicateActionGuardEnabled:true
+  duplicateActionGuardEnabled:true,
+  exactProductCodeSearchEnabled:true,
+  chatSafetyRulesEnabled:true,
+  moderationAppealsEnabled:true,
+  dataExportEnabled:true,
+  accountDeletionEnabled:true,
+  traderLegalDataEnabled:true,
+  maintenanceModePrepared:true,
+  backupRestoreChecklistPrepared:true,
+  passwordChangeRequiresCurrent:true
 };

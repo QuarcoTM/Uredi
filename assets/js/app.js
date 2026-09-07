@@ -1379,7 +1379,7 @@
         if(clean(q).includes('пералня със сушилня')||clean(q).includes('пералня сушилня'))out.push('перални','сушилни');
         return [...new Set(out)];
       };
-      const rowHay=r=>clean([r.dataset.search,r.dataset.brand,r.dataset.city,r.dataset.state,r.dataset.category].join(' '));
+      const rowHay=r=>clean([r.dataset.search,r.dataset.brand,r.dataset.model,r.dataset.code,r.dataset.city,r.dataset.state,r.dataset.category].join(' '));
 
       const controls={
         category:$('#categoryFilter'),brand:$('#brandFilter'),state:$('#stateFilter'),
@@ -1415,8 +1415,14 @@
 
       const sortedRows=()=>{
         const arr=rows.filter(matches);
+        const exactQuery=clean(value('q'));
         const mode=sort?.value||'Най-нови';
         arr.sort((a,b)=>{
+          if(exactQuery){
+            const ae=[clean(a.dataset.model),clean(a.dataset.code)].includes(exactQuery)?1:0;
+            const be=[clean(b.dataset.model),clean(b.dataset.code)].includes(exactQuery)?1:0;
+            if(ae!==be)return be-ae;
+          }
           if(mode.includes('ниска'))return (+a.dataset.price)-(+b.dataset.price);
           if(mode.includes('висока'))return (+b.dataset.price)-(+a.dataset.price);
           return (+b.dataset.created||0)-(+a.dataset.created||0);
@@ -1626,6 +1632,118 @@
       });
       // Internal links should still warn using the browser's native navigation guard.
       post.dataset.unsavedGuard='1';
+    }
+  })();
+
+
+  // v2.11 password, data-rights, appeal, chat-safety and maintenance UI.
+  (function marketV211(){
+    const $=(s,r=document)=>r.querySelector(s);
+    const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+
+    // Forgot password exists only before login / via explicit "Забравена парола?" link.
+    $('[data-forgot-submit]')?.addEventListener('click',()=>{
+      const input=$('[data-forgot-email]');
+      const status=$('[data-forgot-status]');
+      const email=(input?.value||'').trim();
+      if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
+        if(status){status.style.display='block';status.textContent='Въведи валиден email адрес.'}
+        input?.focus();return;
+      }
+      localStorage.setItem('demoPasswordResetEmail',email);
+      if(status){
+        status.style.display='block';
+        status.textContent='Ако има профил с този email, ще получиш защитен линк за нова парола.';
+      }
+    });
+
+    // Logged-in password change is current password -> new -> confirm new.
+    document.addEventListener('click',e=>{
+      const btn=e.target.closest('[data-security-action="change-password"]');
+      if(!btn)return;
+      const current=($('[data-current-password]')?.value||'').trim();
+      const next=($('[data-new-password]')?.value||'').trim();
+      const confirm=($('[data-confirm-password]')?.value||'').trim();
+      if(!current){window.marketToast?.('Въведи старата парола.');$('[data-current-password]')?.focus();return}
+      if(next.length<8){window.marketToast?.('Новата парола трябва да е поне 8 символа.');$('[data-new-password]')?.focus();return}
+      if(next!==confirm){window.marketToast?.('Новата парола и потвърждението не съвпадат.');$('[data-confirm-password]')?.focus();return}
+      localStorage.setItem('demoPasswordChangedAt',String(Date.now()));
+      ['[data-current-password]','[data-new-password]','[data-confirm-password]'].forEach(s=>{const x=$(s);if(x)x.value=''});
+      window.marketToast?.('Паролата е сменена.');
+    });
+
+    // GDPR/account data requests.
+    document.addEventListener('click',e=>{
+      const btn=e.target.closest('[data-data-action]');
+      if(!btn)return;
+      const action=btn.dataset.dataAction;
+      if(action==='export'){
+        localStorage.setItem('demoDataExportRequestedAt',String(Date.now()));
+        window.marketToast?.('Заявката за архив на данните е приета.');
+      }
+      if(action==='delete'){
+        const box=$('[data-delete-confirm]');
+        if(box){box.style.display='block';box.scrollIntoView({behavior:'smooth',block:'center'})}
+      }
+      if(action==='confirm-delete'){
+        const val=($('[data-delete-confirm-text]')?.value||'').trim().toUpperCase();
+        if(val!=='ИЗТРИЙ'){window.marketToast?.('Напиши ИЗТРИЙ, за да потвърдиш.');return}
+        localStorage.setItem('demoAccountDeletionRequestedAt',String(Date.now()));
+        window.marketToast?.('Заявката за изтриване на акаунта е приета.');
+      }
+    });
+
+    // Rules-based chat safety warning. Does not inspect messages server-side in this static build.
+    const chat=$('[data-chat-input]');
+    const risk=$('[data-chat-risk-warning]');
+    if(chat&&risk){
+      const highRisk=/(cvv|cvc|pin|пин|код\s*(от|за)?\s*(sms|смс)|номер\s+на\s+карт|данни\s+от\s+карт|банкова\s+карт)/i;
+      const linkRisk=/(https?:\/\/|www\.|bit\.ly|tinyurl|t\.me\/|telegram|whatsapp)/i;
+      const drawRisk=()=>{
+        const v=chat.value||'';
+        if(highRisk.test(v)){
+          risk.style.display='block';risk.classList.add('high-risk');
+          risk.querySelector('[data-chat-risk-text]').textContent='Не изпращай номер на карта, PIN, CVV/CVC или кодове от SMS. Това са чувствителни данни.';
+        }else if(linkRisk.test(v)){
+          risk.style.display='block';risk.classList.remove('high-risk');
+          risk.querySelector('[data-chat-risk-text]').textContent='Внимавай с външни линкове. Не въвеждай данни за карта или кодове за потвърждение извън платформата.';
+        }else{
+          risk.style.display='none';risk.classList.remove('high-risk');
+        }
+      };
+      chat.addEventListener('input',drawRisk);
+    }
+
+    // User appeal after moderation removal.
+    document.addEventListener('click',e=>{
+      const open=e.target.closest('[data-open-appeal]');
+      const send=e.target.closest('[data-submit-appeal]');
+      if(open){
+        const box=$(`[data-appeal-box="${CSS.escape(open.dataset.openAppeal)}"]`);
+        if(box)box.style.display=box.style.display==='none'?'block':'none';
+      }
+      if(send){
+        const id=send.dataset.submitAppeal;
+        const text=($(`[data-appeal-text="${CSS.escape(id)}"]`)?.value||'').trim();
+        if(text.length<10){window.marketToast?.('Напиши кратко обяснение за повторния преглед.');return}
+        localStorage.setItem('demoModerationAppeal:'+id,JSON.stringify({text,createdAt:Date.now()}));
+        send.disabled=true;send.textContent='Изпратено за преглед';
+        window.marketToast?.('Искането за повторен преглед е изпратено.');
+      }
+    });
+
+    // Maintenance mode - browsing stays available, new publishing/chat actions are disabled.
+    const maintenance=localStorage.getItem('marketMaintenanceMode')==='1';
+    if(maintenance && !document.body.closest('.admin-shell')){
+      const banner=document.createElement('div');
+      banner.className='maintenance-public-banner';
+      banner.textContent='В момента извършваме кратка техническа поддръжка. Разглеждането работи, но публикуването и новите съобщения са временно спрени.';
+      document.body.insertAdjacentElement('afterbegin',banner);
+      $$('a[href="post-ad.html"],[data-send-message],.message-action-button').forEach(x=>{
+        x.classList.add('is-blocked-contact');
+        x.setAttribute('aria-disabled','true');
+        x.addEventListener('click',ev=>{ev.preventDefault();window.marketToast?.('Това действие е временно спряно заради техническа поддръжка.')},true);
+      });
     }
   })();
 
