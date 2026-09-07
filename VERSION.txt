@@ -1,2 +1,2 @@
-tehnika v2.16
-Notification rows + corrected online dot + real chat composer behavior
+tehnika v2.18
+Chat refresh state + one online dot + preset-message cleanup

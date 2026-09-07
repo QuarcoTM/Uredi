@@ -1,18 +1,20 @@
-TEHNIKA v2.16
+TEHNIKA v2.18
 
-FIXES
-- Notifications no longer use the large ugly "Виж" buttons.
-- The entire notification row is clickable and has only a small chevron on the right.
-- Maria's online status dot is now positioned on the avatar, bottom-right, with a white outline.
+CHAT FIXES
+- If a conversation is open and the user refreshes the page, the same chat remains open.
+- Back/Forward restoration also keeps the open chat state.
+- A fresh visit to the Chat tab still starts from the conversation list.
+- The selected conversation id is stored only in sessionStorage for this prototype.
 
-CHAT
-- Quick preset messages are hidden once a real conversation already contains messages.
-- A real message composer is always visible at the bottom:
-  attach icon / "Напиши съобщение…" / send button.
-- Enter sends; Shift+Enter makes a new line.
-- New outgoing demo messages appear immediately in the thread.
-- Opening the chat scrolls to the newest messages.
-- Mobile composer stays above the fixed bottom navigation and respects iPhone safe-area spacing.
+ONLINE STATUS
+- Removed the old duplicate green presence marker.
+- Maria now has exactly one green dot, attached bottom-right to her avatar.
+- The open chat can still show the text "Онлайн сега", but without a second green dot.
 
-Static prototype note:
-Actual message sending and image attachment will be connected to Supabase/backend later.
+QUICK PRESET MESSAGES
+- Existing conversations with message history forcibly remove/hide all old quick/preset message controls.
+- The legacy quick-message JS handler was removed.
+- Preset messages can later be shown only for a genuinely new empty conversation when the backend is connected.
+
+CACHE
+- Service-worker cache version bumped so old chat markup/styles/scripts do not linger.
