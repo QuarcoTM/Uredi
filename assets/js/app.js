@@ -332,10 +332,6 @@
   document.querySelectorAll('[data-history-back]').forEach(b=>b.addEventListener('click',()=>history.length>1?history.back():location.assign('index.html')));
 
 
-
-  document.querySelector('[data-block-user]')?.addEventListener('click',e=>{const on=e.currentTarget.dataset.blocked==='1';e.currentTarget.dataset.blocked=on?'0':'1';e.currentTarget.textContent=on?'Блокирай':'Отблокирай'});
-
-
   // v2.4 share listing using the phone's native share sheet when available.
   document.querySelectorAll('[data-share-listing]').forEach(btn=>{
     btn.addEventListener('click',async()=>{
@@ -766,47 +762,6 @@
     },0);
   });
 
-  // v2.7: complete listing filter including seller type.
-  (function(){
-    const rows=[...document.querySelectorAll('.listing-row')];
-    if(!rows.length)return;
-
-    const panel=document.querySelector('.filter-panel');
-    const search=document.querySelector('[data-listing-search]');
-
-    const apply=()=>{
-      const text=(search?.value||'').trim().toLowerCase();
-      const brand=document.querySelector('#brandFilter')?.value||'';
-      const state=document.querySelector('#stateFilter')?.value||'';
-      const max=parseFloat(document.querySelector('#maxPrice')?.value||'999999');
-      const city=document.querySelector('#cityFilter')?.value||'';
-      const seller=document.querySelector('#sellerTypeFilter')?.value||'';
-
-      rows.forEach(r=>{
-        const hay=(r.dataset.search||'').toLowerCase();
-        const ok=
-          (!text||hay.includes(text)) &&
-          (!brand||r.dataset.brand===brand) &&
-          (!state||r.dataset.state===state) &&
-          (+r.dataset.price<=max) &&
-          (!city||r.dataset.city===city) &&
-          (!seller||r.dataset.sellerType===seller);
-        r.style.display=ok?'grid':'none';
-      });
-
-      const count=rows.filter(r=>r.style.display!=='none').length;
-      const cc=document.querySelector('[data-result-count]');
-      if(cc)cc.textContent=count+' обяви';
-    };
-
-    panel?.querySelectorAll('input,select').forEach(x=>{
-      x.addEventListener('change',apply);
-      x.addEventListener('input',apply);
-    });
-    search?.addEventListener('input',apply);
-    apply();
-  })();
-
 
   // v2.9 phone-tap statistics. Counts button taps, not completed calls.
   (function phoneTapStats(){
@@ -1201,6 +1156,477 @@
     }));
 
     draw();
+  })();
+
+
+  // v2.10 UI resilience and marketplace polish.
+  (function marketV210(){
+    const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+    const $=(s,r=document)=>r.querySelector(s);
+
+    // ---------- Toasts ----------
+    const toastHost=document.createElement('div');
+    toastHost.className='market-toast-host';
+    document.body.appendChild(toastHost);
+
+    window.marketToast=(message,actionLabel,action)=>{
+      const t=document.createElement('div');
+      t.className='market-toast';
+      const span=document.createElement('span');
+      span.textContent=message;
+      t.appendChild(span);
+      if(actionLabel&&action){
+        const b=document.createElement('button');
+        b.type='button';b.textContent=actionLabel;
+        b.addEventListener('click',()=>{try{action()}finally{t.remove()}});
+        t.appendChild(b);
+      }
+      toastHost.appendChild(t);
+      const timer=setTimeout(()=>t.remove(),3800);
+      t.addEventListener('mouseenter',()=>clearTimeout(timer),{once:true});
+      return t;
+    };
+
+    // ---------- Network / weak connection ----------
+    const net=document.createElement('div');
+    net.className='network-banner';
+    net.style.display='none';
+    net.innerHTML='<span data-net-text></span><button type="button">Опитай пак</button>';
+    net.querySelector('button').addEventListener('click',()=>location.reload());
+    document.body.appendChild(net);
+
+    const drawNetwork=()=>{
+      const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+      const weak=!!(c&&(c.saveData||['slow-2g','2g'].includes(c.effectiveType)));
+      if(!navigator.onLine){
+        net.classList.add('offline');net.style.display='flex';
+        net.querySelector('[data-net-text]').textContent='Няма интернет връзка. Неприключените действия няма да бъдат изпратени.';
+      }else if(weak){
+        net.classList.remove('offline');net.style.display='flex';
+        net.querySelector('[data-net-text]').textContent='Връзката е бавна. Снимките и обявите може да се зареждат по-дълго.';
+      }else{
+        net.style.display='none';
+      }
+    };
+    addEventListener('online',()=>{drawNetwork();window.marketToast('Връзката е възстановена.')});
+    addEventListener('offline',drawNetwork);
+    navigator.connection?.addEventListener?.('change',drawNetwork);
+    drawNetwork();
+
+    // ---------- Lazy image blur ----------
+    const readyImage=img=>img.classList.add('is-loaded');
+    $$('img[data-blur-load]').forEach(img=>{
+      if(img.complete)readyImage(img);
+      else{
+        img.addEventListener('load',()=>readyImage(img),{once:true});
+        img.addEventListener('error',()=>readyImage(img),{once:true});
+      }
+    });
+
+    // ---------- Short action locks: no repeated backend-intent events ----------
+    document.addEventListener('click',e=>{
+      const action=e.target.closest('[data-favorite],[data-follow-seller],[data-send-message],[data-submit-report],[data-share-listing],[data-compare],[data-security-action]');
+      if(!action)return;
+      if(action.dataset.actionBusy==='1'){
+        e.preventDefault();e.stopImmediatePropagation();return;
+      }
+      action.dataset.actionBusy='1';
+      setTimeout(()=>{delete action.dataset.actionBusy},550);
+    },true);
+
+    // ---------- Favorite toast + safe Undo ----------
+    document.addEventListener('click',e=>{
+      const btn=e.target.closest('[data-favorite]');
+      if(!btn)return;
+      const id=btn.dataset.favorite;
+      setTimeout(()=>{
+        let fav=[];
+        try{fav=JSON.parse(localStorage.getItem('favorites')||'[]')}catch(err){}
+        const active=fav.includes(id);
+        if(active){
+          window.marketToast('Добавено в любими.');
+        }else{
+          window.marketToast('Премахнато от любими.','Върни',()=>{
+            let a=[];
+            try{a=JSON.parse(localStorage.getItem('favorites')||'[]')}catch(err){}
+            if(!a.includes(id))a.push(id);
+            localStorage.setItem('favorites',JSON.stringify(a));
+            $$(`[data-favorite="${CSS.escape(id)}"]`).forEach(x=>x.classList.add('active'));
+            window.marketToast('Върнато в любими.');
+          });
+        }
+      },0);
+    });
+
+    // ---------- Seller block across listing / profile / chat ----------
+    const blockedKey='marketBlockedSellers';
+    const getBlocked=()=>{try{return JSON.parse(localStorage.getItem(blockedKey)||'[]')}catch(e){return []}};
+    const setBlocked=a=>localStorage.setItem(blockedKey,JSON.stringify([...new Set(a)]));
+    const currentSeller=document.body.dataset.sellerId||document.body.dataset.counterpartyId||'';
+    const isBlocked=id=>getBlocked().includes(id);
+
+    const drawBlockState=()=>{
+      const id=currentSeller||'seller-1';
+      const blocked=isBlocked(id);
+      $$('[data-block-seller]').forEach(b=>{
+        const bid=b.dataset.blockSeller||id;
+        b.textContent=isBlocked(bid)?'Разблокирай продавача':'Блокирай продавача';
+      });
+      $$('[data-blocked-seller-banner],[data-chat-blocked-banner]').forEach(x=>x.style.display=blocked?'block':'none');
+      if(blocked){
+        $$('a[href="messages.html"],.message-action-button,[data-send-message]').forEach(x=>{
+          if(!x.closest('.mobile-bottom')&&!x.closest('.site-header'))x.classList.add('is-blocked-contact');
+        });
+        const inp=$('[data-chat-input]');
+        if(inp){inp.disabled=true;inp.placeholder='Потребителят е блокиран';}
+      }else{
+        $$('.is-blocked-contact').forEach(x=>x.classList.remove('is-blocked-contact'));
+        const inp=$('[data-chat-input]');
+        if(inp){inp.disabled=false;inp.placeholder='Напиши съобщение...';}
+      }
+    };
+    document.addEventListener('click',e=>{
+      const block=e.target.closest('[data-block-seller]');
+      const unblock=e.target.closest('[data-unblock-seller]');
+      if(!block&&!unblock)return;
+      const id=(block?.dataset.blockSeller||unblock?.dataset.unblockSeller||currentSeller||'seller-1');
+      let arr=getBlocked();
+      if(isBlocked(id)){
+        arr=arr.filter(x=>x!==id);
+        setBlocked(arr);
+        window.marketToast('Продавачът е разблокиран.');
+      }else if(block){
+        arr.push(id);setBlocked(arr);
+        window.marketToast('Продавачът е блокиран.');
+      }
+      drawBlockState();
+    });
+    drawBlockState();
+
+    // ---------- Account security prototype ----------
+    document.addEventListener('click',e=>{
+      const btn=e.target.closest('[data-security-action]');
+      if(!btn)return;
+      const action=btn.dataset.securityAction;
+      if(action==='change-email'){
+        const email=$('[data-new-email]')?.value.trim()||'';
+        if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
+          window.marketToast('Въведи валиден нов email адрес.');
+          $('[data-new-email]')?.focus();return;
+        }
+        localStorage.setItem('pendingEmailChange',email);
+        window.marketToast('Изпратено е потвърждение към новия email.');
+      }
+      if(action==='reset-password')window.marketToast('Изпратен е защитен линк за нова парола.');
+      if(action==='signout-all'){
+        localStorage.setItem('signoutAllRequested',String(Date.now()));
+        window.marketToast('Другите активни сесии ще бъдат прекратени.');
+      }
+    });
+
+    // ---------- Smart results engine ----------
+    const list=$('.listing-list');
+    const rows=list?$$('.listing-row',list):[];
+    if(list&&rows.length){
+      const panel=$('.filter-panel');
+      const search=$('[data-listing-search]');
+      const sort=$('[data-sort-listings]');
+      const count=$('[data-result-count]');
+      const chips=$('[data-active-filters]');
+      const chipWrap=$('[data-active-filters-wrap]');
+      const zero=$('[data-zero-results]');
+      const loadMore=$('[data-load-more]');
+      const skeleton=$('[data-results-skeleton]');
+      let visibleLimit=5;
+      let lastChangedKey='';
+
+      const clean=s=>(s||'').toString().toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+
+      const lev=(a,b)=>{
+        const m=Array.from({length:b.length+1},(_,i)=>[i]);
+        for(let j=0;j<=a.length;j++)m[0][j]=j;
+        for(let i=1;i<=b.length;i++)for(let j=1;j<=a.length;j++)
+          m[i][j]=Math.min(m[i-1][j]+1,m[i][j-1]+1,m[i-1][j-1]+(a[j-1]===b[i-1]?0:1));
+        return m[b.length][a.length];
+      };
+
+      const dictionary=['bosch','siemens','samsung','gorenje','daikin','tesy','пералня','перални','сушилня','сушилни','хладилник','хладилници','фризер','фризери','съдомиялна','съдомиялни','фурна','фурни','печка','печки','котлон','котлони','аспиратор','аспиратори','климатик','климатици','бойлер','бойлери','софия','пловдив','варна','бургас','кюстендил'];
+      const correctWord=w=>{
+        if(w.length<4||dictionary.includes(w))return w;
+        let best=w,score=99;
+        dictionary.forEach(k=>{const d=lev(w,k);if(d<score){score=d;best=k}});
+        const limit=w.length>=7?2:1;
+        return score<=limit?best:w;
+      };
+      const synonymMap={
+        'печка':['готварска','готварски','печки'],
+        'печки':['готварска','готварски','печка'],
+        'пералня':['перални'],
+        'перални':['пералня'],
+        'сушилня':['сушилни'],
+        'сушилни':['сушилня'],
+        'хладилник':['хладилници'],
+        'хладилници':['хладилник'],
+        'съдомиялна':['съдомиялни'],
+        'съдомиялни':['съдомиялна']
+      };
+      const queryTokens=q=>{
+        const base=clean(q).split(/\s+/).filter(Boolean).map(correctWord);
+        const out=[...base];
+        base.forEach(w=>(synonymMap[w]||[]).forEach(x=>out.push(x)));
+        if(clean(q).includes('пералня със сушилня')||clean(q).includes('пералня сушилня'))out.push('перални','сушилни');
+        return [...new Set(out)];
+      };
+      const rowHay=r=>clean([r.dataset.search,r.dataset.brand,r.dataset.city,r.dataset.state,r.dataset.category].join(' '));
+
+      const controls={
+        category:$('#categoryFilter'),brand:$('#brandFilter'),state:$('#stateFilter'),
+        city:$('#cityFilter'),seller:$('#sellerTypeFilter'),
+        minPrice:$('#minPrice'),maxPrice:$('#maxPrice'),q:search
+      };
+
+      // Query from header / shared URL.
+      const urlQ=new URLSearchParams(location.search).get('q');
+      if(urlQ&&search&&!search.value)search.value=urlQ;
+
+      const value=k=>(controls[k]?.value||'').trim();
+      const labelFor=(k,v)=>({
+        q:`Търсене: ${v}`,
+        category:v,brand:v,state:v,city:v,
+        seller:v==='private'?'Частно лице':v==='trader'?'Търговец':v,
+        minPrice:`от ${v} €`,maxPrice:`до ${v} €`
+      }[k]||v);
+
+      const matches=(r)=>{
+        const q=value('q'), tokens=queryTokens(q), hay=rowHay(r);
+        const qOk=!q||tokens.every(t=>hay.includes(t))||tokens.some(t=>hay.includes(t));
+        const min=parseFloat(value('minPrice')||'0')||0;
+        const max=parseFloat(value('maxPrice')||'999999')||999999;
+        return qOk &&
+          (!value('category')||clean(r.dataset.category)===clean(value('category'))) &&
+          (!value('brand')||r.dataset.brand===value('brand')) &&
+          (!value('state')||r.dataset.state===value('state')) &&
+          (!value('city')||clean(r.dataset.city)===clean(value('city'))) &&
+          (!value('seller')||r.dataset.sellerType===value('seller')) &&
+          (+r.dataset.price>=min) && (+r.dataset.price<=max);
+      };
+
+      const sortedRows=()=>{
+        const arr=rows.filter(matches);
+        const mode=sort?.value||'Най-нови';
+        arr.sort((a,b)=>{
+          if(mode.includes('ниска'))return (+a.dataset.price)-(+b.dataset.price);
+          if(mode.includes('висока'))return (+b.dataset.price)-(+a.dataset.price);
+          return (+b.dataset.created||0)-(+a.dataset.created||0);
+        });
+        return arr;
+      };
+
+      const drawCounts=()=>{
+        const specs=[
+          ['#brandFilter','brand'],['#stateFilter','state'],['#sellerTypeFilter','seller']
+        ];
+        specs.forEach(([sel,key])=>{
+          const control=$(sel);if(!control||control.tagName!=='SELECT')return;
+          [...control.options].forEach((opt,i)=>{
+            if(i===0){opt.textContent=opt.dataset.baseLabel||opt.textContent.replace(/\s+\(\d+\)$/,'');opt.dataset.baseLabel=opt.textContent;return}
+            const raw=opt.value||opt.textContent.replace(/\s+\(\d+\)$/,'');
+            opt.dataset.baseLabel=opt.dataset.baseLabel||raw;
+            const c=rows.filter(r=>{
+              if(key==='brand')return r.dataset.brand===raw;
+              if(key==='state')return r.dataset.state===raw;
+              if(key==='seller')return r.dataset.sellerType===raw;
+              return true;
+            }).length;
+            opt.textContent=opt.dataset.baseLabel+' ('+c+')';
+          });
+        });
+      };
+
+      const drawChips=()=>{
+        if(!chips||!chipWrap)return;
+        const active=[];
+        Object.entries(controls).forEach(([k,c])=>{
+          if(!c)return;
+          const v=(c.value||'').trim();
+          if(v)active.push([k,v]);
+        });
+        chips.innerHTML=active.map(([k,v])=>`<span class="filter-chip">${labelFor(k,v)} <button type="button" data-remove-filter="${k}" aria-label="Премахни">×</button></span>`).join('');
+        chipWrap.style.display=active.length?'flex':'none';
+      };
+
+      const apply=()=>{
+        sortedRows().forEach(r=>list.appendChild(r));
+        const matched=sortedRows();
+        rows.forEach(r=>r.style.display='none');
+        matched.slice(0,visibleLimit).forEach(r=>r.style.display='grid');
+        if(count)count.textContent=matched.length+' обяви';
+        if(zero)zero.style.display=matched.length?'none':'block';
+        if(loadMore){
+          loadMore.style.display=matched.length>visibleLimit?'flex':'none';
+          loadMore.textContent=`Покажи още (${Math.min(5,matched.length-visibleLimit)})`;
+        }
+        drawChips();
+      };
+
+      Object.entries(controls).forEach(([key,c])=>{
+        if(!c)return;
+        ['input','change'].forEach(evt=>c.addEventListener(evt,()=>{
+          lastChangedKey=key;visibleLimit=5;apply();
+        }));
+      });
+      sort?.addEventListener('change',()=>{lastChangedKey='sort';apply()});
+      loadMore?.addEventListener('click',()=>{visibleLimit+=5;apply()});
+
+      document.addEventListener('click',e=>{
+        const remove=e.target.closest('[data-remove-filter]');
+        if(remove){
+          const key=remove.dataset.removeFilter;
+          if(controls[key])controls[key].value='';
+          lastChangedKey='';visibleLimit=5;apply();
+        }
+        if(e.target.closest('[data-clear-filters]')){
+          Object.values(controls).forEach(c=>{if(c)c.value=''});
+          lastChangedKey='';visibleLimit=5;apply();
+        }
+        if(e.target.closest('[data-remove-last-filter]')){
+          const keys=[lastChangedKey,'q','maxPrice','minPrice','seller','city','state','brand','category'].filter(Boolean);
+          const key=keys.find(k=>controls[k]&&(controls[k].value||'').trim());
+          if(key)controls[key].value='';
+          lastChangedKey='';visibleLimit=5;apply();
+        }
+      });
+
+      drawCounts();
+      // Very short skeleton to avoid a blank jump; backend fetch will later control this state.
+      rows.forEach(r=>r.style.visibility='hidden');
+      setTimeout(()=>{
+        if(skeleton)skeleton.classList.add('is-hidden');
+        rows.forEach(r=>r.style.visibility='');
+        apply();
+      },220);
+    }
+
+    // ---------- Publishing: required fields, no double publish, no accidental exit ----------
+    const post=$('.post-layout');
+    if(post){
+      let dirty=false, safeToLeave=false, publishing=false;
+      const sections=$$('.form-section');
+      const stepDots=$$('.step');
+      const prev=$('[data-prev]'),next=$('[data-next]'),publish=$('[data-publish]');
+      const touchedControls=$$('input,select,textarea',post);
+
+      const clearFieldError=ctrl=>{
+        const field=ctrl.closest('.field');if(!field)return;
+        field.classList.remove('field-error');
+        field.querySelector('.field-error-message')?.remove();
+      };
+      const markFieldError=(ctrl,msg)=>{
+        const field=ctrl.closest('.field');if(!field)return;
+        clearFieldError(ctrl);
+        field.classList.add('field-error');
+        const m=document.createElement('span');m.className='field-error-message';m.textContent=msg;
+        ctrl.insertAdjacentElement('afterend',m);
+      };
+      const gotoStep=i=>{
+        sections.forEach((s,n)=>s.classList.toggle('active',n===i));
+        stepDots.forEach((s,n)=>s.classList.toggle('active',n<=i));
+        if(prev)prev.style.visibility=i===0?'hidden':'visible';
+        if(next)next.style.display=i===sections.length-1?'none':'inline-flex';
+        if(publish)publish.style.display=i===sections.length-1?'inline-flex':'none';
+      };
+      const requiredIn=section=>$$('[data-smart-required]',section);
+      const validControl=ctrl=>{
+        const v=(ctrl.value||'').trim();
+        if(!v)return false;
+        if(ctrl.type==='number'&&(+v<=0))return false;
+        return true;
+      };
+      const validateSection=section=>{
+        let first=null;
+        requiredIn(section).forEach(ctrl=>{
+          clearFieldError(ctrl);
+          if(!validControl(ctrl)){markFieldError(ctrl,'Попълни това поле.');first=first||ctrl}
+        });
+        return first;
+      };
+      const validateAll=()=>{
+        let bad=null,badIndex=-1;
+        sections.forEach((s,i)=>{const x=validateSection(s);if(x&&badIndex<0){bad=x;badIndex=i}});
+        const photos=(window.marketPreparedPhotos||[]).length;
+        if(photos<2){
+          const picker=$('[data-photo-picker]');
+          if(!bad){bad=picker;badIndex=3}
+          const status=$('[data-photo-status]');
+          if(status){status.textContent='Добави поне 2 готови снимки.';status.classList.add('photo-status-error')}
+        }
+        return {bad,badIndex};
+      };
+
+      touchedControls.forEach(c=>{
+        c.addEventListener('input',()=>{dirty=true;clearFieldError(c)});
+        c.addEventListener('change',()=>{dirty=true;clearFieldError(c)});
+      });
+
+      next?.addEventListener('click',e=>{
+        const active=sections.findIndex(s=>s.classList.contains('active'));
+        const bad=validateSection(sections[active]||sections[0]);
+        if(bad){
+          e.preventDefault();e.stopImmediatePropagation();
+          bad.scrollIntoView({behavior:'smooth',block:'center'});
+          setTimeout(()=>bad.focus?.(),250);
+          window.marketToast('Провери маркираното поле.');
+        }
+      },true);
+
+      publish?.addEventListener('click',e=>{
+        e.preventDefault();e.stopImmediatePropagation();
+        if(publishing)return;
+        const {bad,badIndex}=validateAll();
+        if(bad){
+          if(badIndex>=0)gotoStep(badIndex);
+          setTimeout(()=>{bad.scrollIntoView?.({behavior:'smooth',block:'center'});bad.focus?.()},80);
+          window.marketToast('Обявата още не е готова за публикуване.');
+          return;
+        }
+
+        // Basic moderation remains client-side demo; server repeats it in production.
+        const desc=($('[data-ad-description]')?.value||'').trim();
+        const defects=($('[data-ad-defects]')?.value||'').trim();
+        const combined=(desc+' '+defects).toLowerCase();
+        const blockedWords=['порнография','наркотици','фалшив документ'];
+        const contactPattern=/(https?:\/\/|www\.|t\.me\/|telegram|whatsapp|viber|(?:\+359|0)8[7-9]\d[\s.-]?\d{3}[\s.-]?\d{3})/i;
+        const errors=[];
+        if(blockedWords.some(w=>combined.includes(w)))errors.push('Текстът съдържа съдържание, което не е разрешено.');
+        if(contactPattern.test(desc))errors.push('Не поставяй телефон или външни контакти в описанието.');
+        if(errors.length){
+          const f=$('[data-moderation-feedback]');
+          if(f){f.className='moderation-feedback error';f.innerHTML='<strong>Обявата още не може да бъде публикувана.</strong><br>'+errors.join('<br>');f.style.display='block';f.scrollIntoView({behavior:'smooth',block:'center'})}
+          return;
+        }
+
+        publishing=true;safeToLeave=true;
+        publish.dataset.actionBusy='1';
+        publish.classList.add('is-publishing');
+        publish.textContent='Публикуване…';
+        window.marketToast('Публикуваме обявата…');
+        setTimeout(()=>{
+          localStorage.setItem('demoAdPublished','1');
+          location.href='my-ads.html?published=1';
+        },650);
+      },true);
+
+      addEventListener('beforeunload',e=>{
+        if(dirty&&!safeToLeave){
+          e.preventDefault();
+          e.returnValue='';
+        }
+      });
+      // Internal links should still warn using the browser's native navigation guard.
+      post.dataset.unsavedGuard='1';
+    }
   })();
 
 })();

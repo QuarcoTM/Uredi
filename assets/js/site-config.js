@@ -46,5 +46,22 @@ window.SITE_CONFIG={
     exactDuplicateHash:true,
     reorder:true,
     progress:true
-  }
+  },
+
+  filterChipsEnabled:true,
+  resultPagination:{initial:5,step:5},
+  cityAutocompleteEnabled:true,
+  filterCountsEnabled:true,
+  unavailableListingPage:'listing-unavailable.html',
+  lazyImagesEnabled:true,
+  strongerBlockEnabled:true,
+  sellerProfileReportsEnabled:true,
+  accountSecurityEnabled:true,
+  typoToleranceEnabled:true,
+  searchSynonymsEnabled:true,
+  skeletonLoadingEnabled:true,
+  offlineBannerEnabled:true,
+  toastFeedbackEnabled:true,
+  safeUndoEnabled:true,
+  duplicateActionGuardEnabled:true
 };
