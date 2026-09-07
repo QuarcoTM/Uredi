@@ -3634,3 +3634,28 @@ img[data-blur-load].is-loaded{
 .chat-pane:has(.chat-messages[data-has-history="1"]) .quick-messages{
   display:none!important;
 }
+
+
+/* ===== v2.19 keep chat composer above bottom navigation ===== */
+@media(max-width:760px){
+  body.messages-page main.page>.container{
+    padding-bottom:calc(var(--mobile-nav-h) + env(safe-area-inset-bottom))!important;
+  }
+
+  body.messages-page .chat-shell{
+    height:100%!important;
+  }
+
+  body.messages-page .chat-composer-wrap{
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+    position:relative!important;
+    z-index:75!important;
+    background:#fff!important;
+  }
+
+  body.messages-page .chat-composer{
+    display:grid!important;
+  }
+}
