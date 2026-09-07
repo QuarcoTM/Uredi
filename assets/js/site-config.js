@@ -74,5 +74,13 @@ window.SITE_CONFIG={
   backupRestoreChecklistPrepared:true,
   passwordChangeRequiresCurrent:true,
   mobileBottomNavigationV213:true,
-  mobileHeaderNotifications:true
+  mobileHeaderNotifications:true,
+  chatUnreadBadgeEnabled:true,
+  notificationFiltersEnabled:true,
+  recentSearchesEnabled:true,
+  verifiedTraderInfoEnabled:true,
+  overflowMenusEnabled:true,
+  archivedConversationsEnabled:true,
+  cookiePreferenceCenterEnabled:true,
+  accessibilityPassV215:true
 };

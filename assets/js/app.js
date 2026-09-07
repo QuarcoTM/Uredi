@@ -39,21 +39,6 @@
     }
   })();
 
-  // v1.9: mark the active item in the fixed mobile navigation.
-  (function markMobileNav(){
-    const file=(location.pathname.split('/').pop()||'index.html').toLowerCase();
-    $$('.mobile-bottom a').forEach(a=>{
-      const href=(a.getAttribute('href')||'').split('?')[0].toLowerCase();
-      const active=
-        (file==='index.html'&&href==='index.html')||
-        (file==='listings.html'&&href==='listings.html')||
-        ((file==='post-ad.html'||file==='edit-ad.html')&&href==='post-ad.html')||
-        (file==='messages.html'&&href==='messages.html')||
-        ((['profile.html','my-ads.html','notifications.html','saved-searches.html','favorites.html'].includes(file))&&href==='profile.html');
-      a.classList.toggle('is-active',!!active);
-    });
-  })();
-
   // v1.9: filter panel gets a real close button and locks the page behind it.
   (function improveMobileFilters(){
     const fp=$('.filter-panel'), toggle=$('[data-filter-toggle]');
@@ -1794,6 +1779,294 @@
           window.scrollTo({top:0,behavior:'smooth'});
         }
       });
+    });
+  })();
+
+
+  // v2.15 notifications, recent searches, menus, archive and accessibility.
+  (function marketV215(){
+    const $=(s,r=document)=>r.querySelector(s);
+    const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+
+    // ----- Correct active mobile navigation, including Favorites.
+    const file=(location.pathname.split('/').pop()||'index.html').toLowerCase();
+    const key=
+      file==='index.html'?'home':
+      file==='favorites.html'?'favorites':
+      ['post-ad.html','edit-ad.html'].includes(file)?'add':
+      file==='messages.html'?'chat':
+      ['profile.html','profile-edit.html','account-security.html','profile-settings.html','data-rights.html','my-ads.html','saved-searches.html'].includes(file)?'profile':
+      '';
+    $$('.mobile-bottom a[data-nav]').forEach(a=>{
+      const on=a.dataset.nav===key;
+      a.classList.toggle('is-active',on);
+      if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');
+    });
+
+    // ----- Unread Chat badge.
+    let unreadChat=parseInt(localStorage.getItem('marketUnreadChatCount')||'',10);
+    if(Number.isNaN(unreadChat)){
+      unreadChat=3;
+      localStorage.setItem('marketUnreadChatCount',String(unreadChat));
+    }
+    $$('[data-chat-badge]').forEach(b=>{
+      if(unreadChat>0){
+        b.textContent=unreadChat>9?'9+':String(unreadChat);
+        b.classList.add('has-unread');
+        b.setAttribute('aria-hidden','false');
+        const a=b.closest('a');
+        if(a)a.setAttribute('aria-label',`Чат, ${unreadChat} непрочетени съобщения`);
+      }else{
+        b.textContent='';b.classList.remove('has-unread');b.setAttribute('aria-hidden','true');
+      }
+    });
+
+    // Opening Chat marks the demo unread conversations as read.
+    if(file==='messages.html'){
+      unreadChat=0;
+      localStorage.setItem('marketUnreadChatCount','0');
+      $$('[data-chat-badge]').forEach(b=>{b.textContent='';b.classList.remove('has-unread')});
+      $$('.conversation-unread').forEach(x=>x.remove());
+    }
+
+    // ----- Notification filters / unread state.
+    const noticeList=$('.notice-list');
+    if(noticeList){
+      const notices=$$('.notice',noticeList);
+      let unread=parseInt(localStorage.getItem('marketUnreadNotifications')||'',10);
+      if(Number.isNaN(unread))unread=notices.filter(n=>n.classList.contains('unread')).length;
+      localStorage.setItem('marketUnreadNotifications',String(unread));
+
+      const syncBell=()=>{
+        const n=notices.filter(x=>x.classList.contains('unread')).length;
+        localStorage.setItem('marketUnreadNotifications',String(n));
+        $$('[data-notification-badge]').forEach(b=>{
+          if(n){
+            b.textContent=n>9?'9+':String(n);b.classList.add('has-unread');b.setAttribute('aria-hidden','false');
+          }else{
+            b.textContent='';b.classList.remove('has-unread');b.setAttribute('aria-hidden','true');
+          }
+        });
+      };
+      syncBell();
+
+      $$('[data-notification-filter]').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          $$('[data-notification-filter]').forEach(x=>{
+            const active=x===btn;
+            x.classList.toggle('active',active);
+            x.setAttribute('aria-selected',active?'true':'false');
+          });
+          const type=btn.dataset.notificationFilter;
+          notices.forEach(n=>n.hidden=type!=='all'&&n.dataset.notificationType!==type);
+        });
+      });
+      $('[data-notifications-read-all]')?.addEventListener('click',()=>{
+        notices.forEach(n=>{
+          n.classList.remove('unread');
+          n.querySelector('.notice-dot')?.remove();
+          n.setAttribute('aria-label','Прочетено известие');
+        });
+        syncBell();
+        window.marketToast?.('Всички известия са маркирани като прочетени.');
+      });
+      notices.forEach(n=>n.addEventListener('click',()=>{
+        if(n.classList.contains('unread')){
+          n.classList.remove('unread');
+          n.querySelector('.notice-dot')?.remove();
+          n.setAttribute('aria-label','Прочетено известие');
+          syncBell();
+        }
+      }));
+    }
+
+    // ----- Recent searches: local, max 5, shown only when the field is empty.
+    const recentKey='marketRecentSearchesV215';
+    const getRecent=()=>{try{return JSON.parse(localStorage.getItem(recentKey)||'[]')}catch(e){return[]}};
+    const saveRecent=q=>{
+      q=(q||'').trim();
+      if(!q)return;
+      const arr=[q,...getRecent().filter(x=>x.toLowerCase()!==q.toLowerCase())].slice(0,5);
+      localStorage.setItem(recentKey,JSON.stringify(arr));
+    };
+    $$('.header-search,.mobile-header-search').forEach(form=>{
+      const input=$('input',form);
+      if(!input||$('.recent-searches-panel',form))return;
+      input.setAttribute('aria-autocomplete','list');
+
+      const panel=document.createElement('div');
+      panel.className='recent-searches-panel';
+      panel.hidden=true;
+      panel.setAttribute('role','listbox');
+      form.appendChild(panel);
+
+      const close=()=>{panel.hidden=true;input.setAttribute('aria-expanded','false')};
+      const render=()=>{
+        if(input.value.trim()){close();return}
+        const items=getRecent();
+        if(!items.length){close();return}
+        panel.innerHTML=`<div class="recent-searches-head"><span>Последни търсения</span><button type="button" data-recent-clear-all>Изчисти</button></div>`+
+          items.map((q,i)=>`<div class="recent-search-row"><a role="option" href="listings.html?q=${encodeURIComponent(q)}">${q.replace(/[<>&"]/g,'')}</a><button type="button" data-recent-remove="${i}" aria-label="Премахни ${q.replace(/[<>&"]/g,'')}">×</button></div>`).join('');
+        panel.hidden=false;
+        input.setAttribute('aria-expanded','true');
+      };
+      input.addEventListener('focus',render);
+      input.addEventListener('input',render);
+      form.addEventListener('submit',()=>saveRecent(input.value));
+      panel.addEventListener('click',e=>{
+        const rm=e.target.closest('[data-recent-remove]');
+        const clear=e.target.closest('[data-recent-clear-all]');
+        const link=e.target.closest('.recent-search-row a');
+        if(link)saveRecent(link.textContent);
+        if(rm){
+          e.preventDefault();
+          const arr=getRecent();arr.splice(+rm.dataset.recentRemove,1);
+          localStorage.setItem(recentKey,JSON.stringify(arr));render();
+        }
+        if(clear){
+          localStorage.removeItem(recentKey);close();input.focus();
+        }
+      });
+      document.addEventListener('click',e=>{if(!form.contains(e.target))close()});
+      input.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
+    });
+
+    // ----- Verified trader explanation dialog.
+    let verifiedDialog=null, verifiedReturnFocus=null;
+    const closeVerified=()=>{
+      if(!verifiedDialog)return;
+      verifiedDialog.remove();verifiedDialog=null;
+      verifiedReturnFocus?.focus?.();verifiedReturnFocus=null;
+    };
+    document.addEventListener('click',e=>{
+      const btn=e.target.closest('[data-verified-info]');
+      if(!btn)return;
+      verifiedReturnFocus=btn;
+      verifiedDialog=document.createElement('div');
+      verifiedDialog.className='verified-info-dialog';
+      verifiedDialog.setAttribute('role','dialog');
+      verifiedDialog.setAttribute('aria-modal','true');
+      verifiedDialog.setAttribute('aria-labelledby','verifiedInfoTitle');
+      verifiedDialog.innerHTML=`<div class="verified-info-card">
+        <h3 id="verifiedInfoTitle">Потвърден търговец</h3>
+        <p>Този статус показва, че платформата е получила и проверила основните данни, с които продавачът се представя като професионален търговец.</p>
+        <ul>
+          <li>Статусът помага за прозрачност между частни и професионални продавачи.</li>
+          <li>Не е гаранция за конкретна сделка, състоянието на уреда или изпълнението на обещание.</li>
+          <li>Проверявай обявата и използвай системата за сигнал при проблем.</li>
+        </ul>
+        <button type="button" class="secondary-btn" data-close-verified>Разбрах</button>
+      </div>`;
+      document.body.appendChild(verifiedDialog);
+      verifiedDialog.querySelector('[data-close-verified]').focus();
+    });
+    document.addEventListener('click',e=>{
+      if(e.target.closest('[data-close-verified]') || (verifiedDialog&&e.target===verifiedDialog))closeVerified();
+    });
+
+    // ----- Generic three-dot menus.
+    const closeMenus=(except=null)=>{
+      $$('[data-overflow-menu],[data-chat-menu]').forEach(menu=>{
+        if(menu===except)return;
+        menu.hidden=true;
+        const trigger=menu.parentElement?.querySelector('[data-overflow-trigger],[data-chat-menu-trigger]');
+        trigger?.setAttribute('aria-expanded','false');
+      });
+    };
+    document.addEventListener('click',e=>{
+      const trigger=e.target.closest('[data-overflow-trigger],[data-chat-menu-trigger]');
+      if(trigger){
+        e.preventDefault();
+        const menu=trigger.parentElement.querySelector('[data-overflow-menu],[data-chat-menu]');
+        const open=menu?.hidden;
+        closeMenus(menu);
+        if(menu){
+          menu.hidden=!open;
+          trigger.setAttribute('aria-expanded',open?'true':'false');
+          if(open)menu.querySelector('a,button')?.focus();
+        }
+        return;
+      }
+      if(!e.target.closest('.overflow-menu'))closeMenus();
+    });
+
+    // ----- Active / archived conversations.
+    const showConversationView=view=>{
+      $$('[data-conversation-view]').forEach(b=>{
+        const active=b.dataset.conversationView===view;
+        b.classList.toggle('active',active);
+        b.setAttribute('aria-selected',active?'true':'false');
+      });
+      $$('[data-conversation-state]').forEach(c=>{
+        c.hidden=c.dataset.conversationState!==view;
+      });
+    };
+    $$('[data-conversation-view]').forEach(b=>b.addEventListener('click',()=>showConversationView(b.dataset.conversationView)));
+    if($('[data-conversation-tabs]'))showConversationView('active');
+
+    $('[data-archive-conversation]')?.addEventListener('click',()=>{
+      const active=$('.conversation[data-conversation-state="active"].active') || $('.conversation[data-conversation-state="active"]');
+      if(active){
+        active.dataset.conversationState='archived';
+        active.hidden=true;
+        window.marketToast?.('Разговорът е архивиран.','Върни',()=>{
+          active.dataset.conversationState='active';showConversationView('active');
+        });
+      }
+      closeMenus();
+    });
+
+    // ----- Cookie preference center.
+    const cookieStateKey='marketCookiePreferencesV215';
+    const getCookieState=()=>{
+      try{return JSON.parse(localStorage.getItem(cookieStateKey)||'null')}catch(e){return null}
+    };
+    const drawCookiePrefs=()=>{
+      const state=getCookieState();
+      const a=$('[data-cookie-pref="analytics"]');
+      const m=$('[data-cookie-pref="marketing"]');
+      if(a)a.checked=!!state?.analytics;
+      if(m)m.checked=!!state?.marketing;
+      const status=$('[data-cookie-choice-status]');
+      if(status){
+        status.textContent=!state?'Не е избрано':
+          state.analytics&&state.marketing?'Всички':
+          state.analytics?'Необходими + аналитични':
+          state.marketing?'Необходими + маркетинг':'Само необходими';
+      }
+    };
+    $$('[data-cookie-save]').forEach(btn=>btn.addEventListener('click',()=>{
+      const type=btn.dataset.cookieSave;
+      let state={necessary:true,analytics:false,marketing:false};
+      if(type==='all')state={necessary:true,analytics:true,marketing:true};
+      if(type==='selection'){
+        state.analytics=!!$('[data-cookie-pref="analytics"]')?.checked;
+        state.marketing=!!$('[data-cookie-pref="marketing"]')?.checked;
+      }
+      localStorage.setItem(cookieStateKey,JSON.stringify(state));
+      localStorage.setItem('cookieChoice',state.analytics||state.marketing?'custom':'necessary');
+      document.querySelector('.cookie-bar')?.classList.remove('show');
+      drawCookiePrefs();
+      window.marketToast?.('Предпочитанията за бисквитки са запазени.');
+    }));
+    drawCookiePrefs();
+
+    // ----- Escape closes all dialogs/menus and restores sane focus.
+    document.addEventListener('keydown',e=>{
+      if(e.key!=='Escape')return;
+      closeMenus();
+      closeVerified();
+      document.querySelectorAll('.search-suggest.open').forEach(x=>x.classList.remove('open'));
+      document.querySelectorAll('.recent-searches-panel').forEach(x=>x.hidden=true);
+    });
+
+    // ----- Accessible labels for controls that have only placeholder/text context.
+    $$('input,select,textarea').forEach(el=>{
+      if(el.getAttribute('aria-label')||el.getAttribute('aria-labelledby'))return;
+      const field=el.closest('.field');
+      const label=field?.querySelector('label')?.textContent?.trim();
+      if(label)el.setAttribute('aria-label',label.replace('*','').trim());
+      else if(el.getAttribute('placeholder'))el.setAttribute('aria-label',el.getAttribute('placeholder'));
     });
   })();
 
