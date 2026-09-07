@@ -2429,3 +2429,60 @@ img[data-blur-load].is-loaded{
   .inactive-listing-card h1{font-size:19px}
   .seller-secondary-actions{grid-template-columns:1fr}
 }
+
+
+/* ===== v2.11 password flow / moderation appeal / safety / GDPR / trader data ===== */
+.security-password-form{display:grid;gap:6px}
+.security-password-form input{
+  width:100%;height:38px;padding:0 9px;border:1px solid #d6dfe7;border-radius:8px;background:#fff
+}
+.security-forgot-link{color:#2868ad;font-size:9.5px;font-weight:800;text-align:left}
+.auth-inline-status{
+  margin:10px 0;padding:9px 10px;border:1px solid #cfe2d6;border-radius:8px;
+  background:#f1faf4;color:#326348;font-size:10px;font-weight:700
+}
+.data-rights-panel{margin-top:16px}
+.data-rights-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.data-right-card{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:12px;border:1px solid #e1e7ed;border-radius:10px;background:#fbfcfd
+}
+.data-right-card>div{display:grid;gap:4px}
+.data-right-card strong{font-size:11px}
+.data-right-card span{color:#7b8794;font-size:9.5px;line-height:1.4}
+.data-right-card.danger{border-color:#ead1cf;background:#fffafa}
+.account-delete-confirm{margin-top:10px;padding:12px;border:1px solid #e2bcb9;border-radius:10px;background:#fff8f7}
+.account-delete-confirm p{margin:5px 0 9px;color:#76504d;font-size:10px}
+
+.chat-risk-warning{
+  margin:0 12px 8px;padding:9px 10px;border:1px solid #e4c283;border-radius:9px;
+  background:#fff8e8;color:#735321;font-size:10px;line-height:1.45
+}
+.chat-risk-warning strong{display:block;margin-bottom:2px}
+.chat-risk-warning.high-risk{border-color:#e0a7a2;background:#fff2f1;color:#8c3c37}
+
+.moderation-removed-card{border-color:#e2c2bf!important;background:#fffafa!important}
+.removed-status{display:inline-block;margin:4px 0;color:#a54d47;font-size:9.5px;font-weight:850}
+.moderation-reason{margin:7px 0;padding:8px 9px;border-radius:8px;background:#fff1f0;color:#754946;font-size:10px;line-height:1.45}
+.moderation-appeal-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.moderation-appeal-box{margin-top:9px;padding:10px;border:1px solid #dce4eb;border-radius:9px;background:#fff}
+.moderation-appeal-box label{display:block;margin-bottom:5px;font-size:9.5px;font-weight:800}
+.moderation-appeal-box textarea{width:100%;padding:8px;border:1px solid #d5dee7;border-radius:8px;resize:vertical}
+.moderation-appeal-box .primary-btn{margin-top:7px}
+
+.trader-legal-panel{margin:12px 0}
+.trader-legal-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.trader-legal-grid>div{display:grid;gap:3px;padding:9px;border:1px solid #e5eaf0;border-radius:8px;background:#fafbfd}
+.trader-legal-grid span{color:#7d8997;font-size:8.5px}
+.trader-legal-grid strong{font-size:10px}
+
+.maintenance-public-banner{
+  position:sticky;top:0;z-index:88;padding:8px 12px;text-align:center;
+  border-bottom:1px solid #e5c887;background:#fff7e3;color:#725423;font-size:10px;font-weight:800
+}
+
+@media(max-width:760px){
+  .data-rights-grid{grid-template-columns:1fr}
+  .data-right-card{align-items:flex-start;flex-direction:column}
+  .trader-legal-grid{grid-template-columns:1fr 1fr}
+}
