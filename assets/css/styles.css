@@ -3659,3 +3659,217 @@ img[data-blur-load].is-loaded{
     display:grid!important;
   }
 }
+
+/* ===== v2.20 working chat image picker + preview ===== */
+.chat-image-input{
+  position:absolute!important;width:1px!important;height:1px!important;
+  opacity:0!important;pointer-events:none!important;
+}
+.chat-image-preview[hidden]{display:none!important}
+.chat-image-preview{padding:0 0 8px}
+.chat-image-preview-card{
+  display:grid;grid-template-columns:58px minmax(0,1fr) 34px;align-items:center;gap:9px;
+  padding:7px;border:1px solid #d9e2ea;border-radius:10px;background:#f8fafc;
+}
+.chat-image-preview-card img{width:58px;height:58px;object-fit:cover;border-radius:8px;background:#eef2f6}
+.chat-image-preview-copy{display:grid;gap:2px;min-width:0}
+.chat-image-preview-copy strong{overflow:hidden;color:#2b3d52;font-size:10px;white-space:nowrap;text-overflow:ellipsis}
+.chat-image-preview-copy span{color:#84909c;font-size:8.5px}
+.chat-image-remove{
+  display:grid;place-items:center;width:32px;height:32px;border:1px solid #d6dfe7;
+  border-radius:8px;background:#fff;color:#68788a;font-size:17px;font-weight:700
+}
+.chat-bubble-image{
+  display:block;width:min(240px,72vw);max-height:320px;object-fit:cover;
+  margin-bottom:5px;border-radius:10px
+}
+@media(max-width:760px){
+  .chat-image-preview-card{grid-template-columns:52px minmax(0,1fr) 34px}
+  .chat-image-preview-card img{width:52px;height:52px}
+}
+
+
+/* ===== v2.21 chat delivery/drafts/security auth ===== */
+.chat-new-divider{
+  display:flex;align-items:center;gap:8px;margin:6px 0 10px;color:#6c7d90;font-size:9px;font-weight:850
+}
+.chat-new-divider::before,.chat-new-divider::after{content:"";height:1px;background:#dfe6ed;flex:1}
+.chat-jump-bottom{
+  position:absolute;right:14px;bottom:82px;z-index:80;
+  width:38px;height:38px;border:1px solid #d3dde7;border-radius:50%;
+  background:#fff;color:#315a83;font-size:17px;font-weight:800;
+  box-shadow:0 6px 18px rgba(23,42,64,.15)
+}
+.chat-jump-bottom[hidden]{display:none!important}
+
+.chat-typing{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 12px 6px;color:#718095;font-size:9px
+}
+.chat-typing[hidden]{display:none!important}
+.typing-avatar{
+  display:grid;place-items:center;width:22px;height:22px;border-radius:50%;
+  background:#eef3f7;color:#47617d;font-size:8px;font-weight:800
+}
+.typing-dots{display:inline-flex;gap:2px}
+.typing-dots i{width:3px;height:3px;border-radius:50%;background:#8a98a8;animation:typingDot 1s infinite}
+.typing-dots i:nth-child(2){animation-delay:.15s}.typing-dots i:nth-child(3){animation-delay:.3s}
+@keyframes typingDot{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-2px)}}
+
+.bubble-delivery-status{
+  display:flex;justify-content:flex-end;align-items:center;gap:5px;
+  margin-top:3px;color:#7f8b98;font-size:7.8px
+}
+.bubble-delivery-status.failed{color:#b84c46}
+.bubble-retry{
+  border:0;background:transparent;color:#246ab2;font-size:7.8px;font-weight:850;padding:0
+}
+
+.security-device-alert{
+  display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center;
+  margin-bottom:12px;padding:12px;border:1px solid #e3b8b4;border-radius:11px;background:#fff6f5
+}
+.security-alert-icon{
+  display:grid;place-items:center;width:32px;height:32px;border-radius:50%;
+  background:#ffe6e3;color:#a44640;font-weight:900
+}
+.security-device-alert>div:nth-child(2){display:grid;gap:2px}
+.security-device-alert strong{font-size:11px;color:#573735}
+.security-device-alert span,.security-device-alert p{margin:0;color:#80625f;font-size:9px}
+.session-list{display:grid;gap:6px;margin-bottom:10px}
+.session-row{
+  display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:9px;
+  padding:9px;border:1px solid #e3e8ee;border-radius:9px;background:#fbfcfd
+}
+.session-row.current{background:#f5faf7;border-color:#d9e9df}
+.session-device-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#edf3f8}
+.session-row>div:nth-child(2){display:grid;gap:1px}
+.session-row strong{font-size:10px}.session-row span{color:#7d8996;font-size:8.5px}
+.session-current{color:#278057!important;font-weight:850}
+.signout-all-clean{margin-top:4px}
+.passkey-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.passkey-row>div{display:grid;gap:2px}
+.passkey-status{font-size:10px;font-weight:850;color:#445a70}
+.passkey-row small{color:#84909b;font-size:8.5px}
+
+.suspicious-check{
+  margin:8px 0;padding:10px;border:1px solid #dfc78f;border-radius:9px;background:#fff9ea
+}
+.suspicious-check[hidden]{display:none!important}
+.suspicious-check-head{display:grid;gap:2px;margin-bottom:7px}
+.suspicious-check-head strong{font-size:10.5px;color:#614c23}
+.suspicious-check-head span,.suspicious-check small{color:#796945;font-size:8.7px;line-height:1.4}
+.suspicious-human-check{margin:4px 0}
+
+@media(max-width:760px){
+  .security-device-alert{grid-template-columns:32px minmax(0,1fr)}
+  .security-device-alert>.secondary-btn{grid-column:1/-1;width:100%}
+  .session-row{grid-template-columns:32px minmax(0,1fr)}
+  .session-row>.mini-btn,.session-row>.session-current{grid-column:2}
+  .passkey-row{align-items:flex-start;flex-direction:column}
+  .passkey-row .secondary-btn{width:100%}
+}
+
+
+/* ===== v2.22 chat direction / mobile keyboard / other brand / latest type ===== */
+
+/* Message direction must be visually unambiguous. */
+.chat-messages .bubble-row{
+  display:flex!important;
+  width:100%!important;
+}
+.chat-messages .bubble-row:not(.me),
+.chat-messages .bubble-row[data-message-direction="incoming"]{
+  justify-content:flex-start!important;
+}
+.chat-messages .bubble-row.me,
+.chat-messages .bubble-row[data-message-direction="outgoing"]{
+  justify-content:flex-end!important;
+}
+.chat-messages .bubble-row.me .bubble,
+.chat-messages .bubble-row[data-message-direction="outgoing"] .bubble{
+  margin-left:auto!important;
+  margin-right:0!important;
+  background:#e8f2ff!important;
+  border-color:#c8ddf5!important;
+  border-bottom-right-radius:5px!important;
+}
+.chat-messages .bubble-row:not(.me) .bubble,
+.chat-messages .bubble-row[data-message-direction="incoming"] .bubble{
+  margin-left:0!important;
+  margin-right:auto!important;
+  background:#fff!important;
+  border-color:#dfe6ed!important;
+  border-bottom-left-radius:5px!important;
+}
+
+/* "Друга марка" */
+.other-brand-field[hidden]{display:none!important}
+.other-brand-field{
+  border-left:3px solid #d7e5f4;
+  padding-left:10px;
+}
+.field-help{
+  display:block;
+  margin-top:4px;
+  color:#85919e;
+  font-size:8.8px;
+  line-height:1.35;
+}
+
+/* Type label in "Ново добавени" */
+.product-category-label{
+  margin-bottom:3px;
+  color:#60758c;
+  font-size:9px;
+  font-weight:850;
+  letter-spacing:.025em;
+  text-transform:uppercase;
+}
+
+/* Mobile chat viewport follows the visible iPhone viewport while keyboard is open. */
+@media(max-width:760px){
+  body.messages-page{
+    height:var(--chat-visible-height,100dvh)!important;
+    max-height:var(--chat-visible-height,100dvh)!important;
+  }
+
+  body.messages-page.chat-keyboard-open{
+    padding-bottom:0!important;
+  }
+
+  body.messages-page.chat-keyboard-open .site-header,
+  body.messages-page.chat-keyboard-open .safety-ticker,
+  body.messages-page.chat-keyboard-open .mobile-bottom{
+    display:none!important;
+  }
+
+  body.messages-page.chat-keyboard-open main.page{
+    padding-top:0!important;
+  }
+
+  body.messages-page.chat-keyboard-open main.page>.container{
+    width:100%!important;
+    padding-bottom:0!important;
+  }
+
+  body.messages-page.chat-keyboard-open .chat-shell{
+    border-radius:0!important;
+    border-left:0!important;
+    border-right:0!important;
+  }
+
+  body.messages-page.chat-keyboard-open .chat-product{
+    min-height:54px;
+  }
+
+  body.messages-page.chat-keyboard-open .chat-composer-wrap{
+    position:relative!important;
+    bottom:auto!important;
+    padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))!important;
+  }
+
+  body.messages-page.chat-keyboard-open .chat-messages{
+    padding-bottom:14px!important;
+  }
+}
