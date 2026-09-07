@@ -2875,3 +2875,101 @@ img[data-blur-load].is-loaded{
   }
   .data-right-list-row .secondary-btn{width:100%}
 }
+
+
+/* ===== v2.13 mobile navigation cleanup ===== */
+.mobile-notifications{display:none}
+
+@media(max-width:760px){
+  /* Mobile header is intentionally only logo | search | notifications. */
+  .header-actions>.icon-btn:not(.mobile-notifications){display:none!important}
+  .mobile-notifications{
+    display:flex!important;
+    position:relative;
+    flex:0 0 40px;
+    width:40px;
+    height:40px;
+    border:1px solid #d8dee8!important;
+    border-radius:10px!important;
+    background:#fff!important;
+    color:#34465d!important;
+  }
+  .mobile-notifications:hover{background:#f7f9fb!important}
+  .mobile-notifications .ico{width:20px;height:20px}
+
+  .notification-badge{
+    display:none;
+    position:absolute;
+    right:-3px;
+    top:-4px;
+    min-width:17px;
+    height:17px;
+    padding:0 4px;
+    align-items:center;
+    justify-content:center;
+    border:2px solid #fff;
+    border-radius:999px;
+    background:#d6403a;
+    color:#fff;
+    font-size:8px;
+    font-weight:900;
+    line-height:1;
+  }
+  .notification-badge.has-unread{display:flex}
+
+  /* Five distinct destinations; no duplicated "Обяви" tab. */
+  .mobile-bottom a{
+    position:relative;
+    color:#687589;
+    font-weight:650;
+  }
+  .mobile-bottom a .ico{
+    width:21px;
+    height:21px;
+    transition:transform .12s ease,color .12s ease;
+  }
+  .mobile-bottom a.is-active{
+    color:#1767d9!important;
+    font-weight:850!important;
+  }
+  .mobile-bottom a.is-active .ico{
+    color:#1767d9!important;
+    transform:translateY(-1px);
+  }
+  .mobile-bottom a.is-active::after{
+    content:"";
+    position:absolute;
+    top:4px;
+    width:4px;
+    height:4px;
+    border-radius:50%;
+    background:#1767d9;
+  }
+  .mobile-bottom a[data-nav="favorites"].is-active .ico svg{
+    fill:currentColor;
+  }
+  .mobile-bottom a[data-nav="profile"].is-active .ico circle{
+    fill:currentColor;
+    stroke:currentColor;
+  }
+
+  /* Add stays integrated in the bar, but visually obvious. */
+  .mobile-bottom a.primary-mobile{
+    color:#50627a!important;
+    font-weight:800!important;
+  }
+  .mobile-bottom a.primary-mobile .ico{
+    width:27px!important;
+    height:27px!important;
+    padding:5px!important;
+    border-radius:50%!important;
+    background:#1767d9!important;
+    color:#fff!important;
+  }
+  .mobile-bottom a.primary-mobile.is-active{
+    color:#1767d9!important;
+  }
+  .mobile-bottom a.primary-mobile.is-active .ico{
+    background:#1257b9!important;
+  }
+}
