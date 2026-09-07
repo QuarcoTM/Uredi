@@ -1761,4 +1761,40 @@
     });
   })();
 
+
+  // v2.13 mobile navigation: notification badge + repeat-tab scroll to top.
+  (function mobileNavV213(){
+    const badge=document.querySelector('[data-notification-badge]');
+    if(badge){
+      let unread=parseInt(localStorage.getItem('marketUnreadNotifications')||'',10);
+      if(Number.isNaN(unread)){
+        // Static prototype currently contains four unread notifications.
+        unread=4;
+        localStorage.setItem('marketUnreadNotifications',String(unread));
+      }
+      if(unread>0){
+        badge.textContent=unread>9?'9+':String(unread);
+        badge.classList.add('has-unread');
+        badge.setAttribute('aria-hidden','false');
+        const link=badge.closest('a');
+        if(link)link.setAttribute('aria-label',`Известия, ${unread} непрочетени`);
+      }else{
+        badge.textContent='';
+        badge.classList.remove('has-unread');
+        badge.setAttribute('aria-hidden','true');
+      }
+    }
+
+    const file=(location.pathname.split('/').pop()||'index.html').toLowerCase();
+    document.querySelectorAll('.mobile-bottom a').forEach(link=>{
+      link.addEventListener('click',e=>{
+        const target=(link.getAttribute('href')||'').split('?')[0].toLowerCase();
+        if(target===file && link.classList.contains('is-active')){
+          e.preventDefault();
+          window.scrollTo({top:0,behavior:'smooth'});
+        }
+      });
+    });
+  })();
+
 })();

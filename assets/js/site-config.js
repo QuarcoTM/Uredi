@@ -72,5 +72,7 @@ window.SITE_CONFIG={
   traderLegalDataEnabled:true,
   maintenanceModePrepared:true,
   backupRestoreChecklistPrepared:true,
-  passwordChangeRequiresCurrent:true
+  passwordChangeRequiresCurrent:true,
+  mobileBottomNavigationV213:true,
+  mobileHeaderNotifications:true
 };
