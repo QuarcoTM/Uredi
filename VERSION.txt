@@ -1,2 +1,2 @@
-tehnika v2.18
-Chat refresh state + one online dot + preset-message cleanup
+tehnika v2.22
+Chat direction + keyboard-safe composer + custom brand + appliance type on latest listings
