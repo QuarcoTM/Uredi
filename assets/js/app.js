@@ -15,7 +15,6 @@
   const cookie=$('.cookie-bar');if(cookie&&!localStorage.getItem('cookieChoice'))setTimeout(()=>cookie.classList.add('show'),300);$$('[data-cookie]').forEach(b=>b.addEventListener('click',()=>{localStorage.setItem('cookieChoice',b.dataset.cookie);cookie?.classList.remove('show');}));
   const sections=$$('.form-section');let step=0;function showStep(n){step=Math.max(0,Math.min(sections.length-1,n));sections.forEach((s,i)=>s.classList.toggle('active',i===step));$$('.step').forEach((x,i)=>x.classList.toggle('active',i<=step));const prev=$('[data-prev]'), next=$('[data-next]'), pub=$('[data-publish]');if(prev)prev.style.visibility=step===0?'hidden':'visible';if(next)next.style.display=step===sections.length-1?'none':'inline-flex';if(pub)pub.style.display=step===sections.length-1?'inline-flex':'none';window.scrollTo({top:0,behavior:'smooth'});}if(sections.length){showStep(0);$('[data-next]')?.addEventListener('click',()=>showStep(step+1));$('[data-prev]')?.addEventListener('click',()=>showStep(step-1));$('[data-publish]')?.addEventListener('click',()=>{localStorage.setItem('demoAdPublished','1');location.href='my-ads.html?published=1';});}
   const send=$('[data-send-message]');if(send){send.addEventListener('click',()=>{const inp=$('[data-chat-input]');const val=inp.value.trim();if(!val)return;const wrap=$('.chat-messages');const row=document.createElement('div');row.className='bubble-row me';row.innerHTML='<div class="bubble">'+val.replace(/[<>]/g,'')+'<div class="bubble-time">сега</div></div>';wrap.appendChild(row);inp.value='';wrap.scrollTop=wrap.scrollHeight;});}
-  const q=$('[data-quick-message]');$$('[data-quick-message]').forEach(b=>b.addEventListener('click',()=>{const inp=$('[data-chat-input]');if(inp){inp.value=b.textContent.trim();inp.focus();}}));
   $$('[data-tab]').forEach(t=>t.addEventListener('click',()=>{$$('[data-tab]').forEach(x=>x.classList.remove('active'));t.classList.add('active');const target=t.dataset.tab;$$('[data-tab-panel]').forEach(p=>p.style.display=p.dataset.tabPanel===target?'block':'none');}));
   if(new URLSearchParams(location.search).get('published')){const c=$('[data-published-callout]');if(c)c.style.display='block';}
 
@@ -54,24 +53,62 @@
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&fp.classList.contains('open')){fp.classList.remove('open');document.body.classList.remove('filter-open')}});
   })();
 
-  // v1.9: mobile chat opens as conversation list and has a back button.
-  (function improveMobileChat(){
+  // v2.18: mobile chat remembers the open conversation on refresh/back-forward.
+  (function improveMobileChatV218(){
     const shell=$('.chat-shell');
     if(!shell)return;
-    const pane=shell.querySelector('.chat-pane');
+
     const product=shell.querySelector('.chat-product');
+    const stateOpenKey='marketChatOpenV218';
+    const stateConversationKey='marketActiveConversationV218';
+
+    const setOpen=(open)=>{
+      shell.classList.toggle('chat-open',!!open);
+      sessionStorage.setItem(stateOpenKey,open?'1':'0');
+    };
+
+    const selectConversation=(conversation)=>{
+      if(!conversation)return;
+      shell.querySelectorAll('.conversation').forEach(x=>x.classList.remove('active'));
+      conversation.classList.add('active');
+      const id=conversation.dataset.conversationId||'';
+      if(id)sessionStorage.setItem(stateConversationKey,id);
+    };
+
     if(product&&!product.querySelector('.mobile-chat-back')){
       const back=document.createElement('button');
-      back.type='button';back.className='mobile-chat-back';back.setAttribute('aria-label','Назад към разговорите');back.textContent='←';
+      back.type='button';
+      back.className='mobile-chat-back';
+      back.setAttribute('aria-label','Назад към разговорите');
+      back.textContent='←';
       product.insertBefore(back,product.firstChild);
-      back.addEventListener('click',()=>shell.classList.remove('chat-open'));
+      back.addEventListener('click',()=>{
+        setOpen(false);
+      });
     }
+
     shell.querySelectorAll('.conversation').forEach(c=>c.addEventListener('click',()=>{
-      shell.querySelectorAll('.conversation').forEach(x=>x.classList.remove('active'));
-      c.classList.add('active');
-      shell.classList.add('chat-open');
+      selectConversation(c);
+      setOpen(true);
     }));
+
+    // Only restore the open conversation for Reload / Back-Forward.
+    // A fresh tap on the bottom "Чат" tab still opens the conversation list.
+    const navEntry=performance.getEntriesByType?.('navigation')?.[0];
+    const navigationType=navEntry?.type||'navigate';
+    const shouldRestore=(navigationType==='reload'||navigationType==='back_forward')
+      && sessionStorage.getItem(stateOpenKey)==='1';
+
+    const savedId=sessionStorage.getItem(stateConversationKey);
+    const savedConversation=savedId
+      ? shell.querySelector(`.conversation[data-conversation-id="${CSS.escape(savedId)}"]`)
+      : null;
+
+    if(savedConversation)selectConversation(savedConversation);
+    if(shouldRestore)setOpen(true);
+    else if(navigationType==='navigate')setOpen(false);
   })();
+
 
   // v1.9: comparison becomes stacked cards on phones instead of a wide table.
   (function buildMobileCompare(){
@@ -2165,6 +2202,106 @@
         last?.scrollIntoView({block:'end'});
       },60);
     }
+  })();
+
+
+  // v2.17 chat uses its own internal scroll container on mobile.
+  (function chatScrollV217(){
+    const scroller=document.querySelector('[data-chat-scroll]');
+    const form=document.querySelector('[data-chat-form]');
+    const input=document.querySelector('[data-chat-input]');
+
+    const scrollToLatest=(smooth=false)=>{
+      if(!scroller)return;
+      if(smooth){
+        scroller.scrollTo({top:scroller.scrollHeight,behavior:'smooth'});
+      }else{
+        scroller.scrollTop=scroller.scrollHeight;
+      }
+    };
+
+    if(scroller){
+      // Keep the main document fixed; only this element scrolls.
+      requestAnimationFrame(()=>scrollToLatest(false));
+      setTimeout(()=>scrollToLatest(false),80);
+    }
+
+    // Capture submit before the older v2.16 handler so only one outgoing
+    // message is inserted, directly into the true chat scroller.
+    form?.addEventListener('submit',e=>{
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      const text=(input?.value||'').trim();
+      if(!text||!scroller)return;
+
+      const row=document.createElement('div');
+      row.className='bubble-row me';
+
+      const bubble=document.createElement('div');
+      bubble.className='bubble';
+
+      const textNode=document.createElement('div');
+      textNode.textContent=text;
+
+      const time=document.createElement('div');
+      time.className='bubble-time';
+      const now=new Date();
+      time.textContent=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+
+      bubble.append(textNode,time);
+      row.appendChild(bubble);
+      scroller.appendChild(row);
+
+      input.value='';
+      input.style.height='auto';
+      document.querySelector('[data-quick-replies]')?.setAttribute('hidden','');
+      localStorage.setItem('demoLastChatMessageAt',String(Date.now()));
+
+      requestAnimationFrame(()=>scrollToLatest(true));
+      input.focus();
+    },true);
+
+    // When switching from conversation list to chat, land on the latest message.
+    document.querySelectorAll('.conversation').forEach(c=>{
+      c.addEventListener('click',()=>setTimeout(()=>scrollToLatest(false),40));
+    });
+  })();
+
+
+  // v2.18 cleanup for existing conversations.
+  (function chatCleanupV218(){
+    const hasHistory=document.querySelectorAll('.chat-messages .bubble-row').length>0;
+
+    if(hasHistory){
+      document.querySelectorAll(
+        '[data-quick-message],[data-quick-replies],.quick-replies,.chat-quick-replies,.quick-message,.quick-messages'
+      ).forEach(x=>{
+        const wrapper=x.closest('[data-quick-replies],.quick-replies,.chat-quick-replies,.quick-messages');
+        (wrapper||x).remove();
+      });
+    }
+
+    // Old v2.x presence marker must never coexist with the current avatar badge.
+    document.querySelectorAll('.conversation-online-dot').forEach(x=>x.remove());
+
+    // Maria gets exactly one status badge, on the avatar.
+    document.querySelectorAll('.conversation').forEach(c=>{
+      const name=c.querySelector('.conversation-name')?.textContent?.trim()||'';
+      const avatar=c.querySelector('.avatar');
+      if(!avatar)return;
+      const dots=[...avatar.querySelectorAll('.avatar-online-dot,.conversation-online-dot,.online-dot')];
+      dots.forEach(x=>x.remove());
+      if(name==='Мария Стоянова'){
+        const dot=document.createElement('span');
+        dot.className='avatar-online-dot';
+        dot.setAttribute('aria-label','Онлайн');
+        avatar.appendChild(dot);
+      }
+    });
+
+    // Textual status in the open-chat header can remain, but not a second green dot.
+    document.querySelectorAll('.chat-presence .online-dot,.chat-presence .conversation-online-dot').forEach(x=>x.remove());
   })();
 
 })();
