@@ -87,3 +87,37 @@ document.querySelectorAll('table').forEach(table=>{
   if((location.pathname.split('/').pop()||'')==='sold-archive.html') a.classList.add('active');
   if(ads) ads.insertAdjacentElement('afterend',a); else nav.appendChild(a);
 })();
+
+
+// v2.11 maintenance mode + backup checklist prototype
+(function(){
+  const toggle=document.querySelector('[data-maintenance-toggle]');
+  const status=document.querySelector('[data-maintenance-status]');
+  const draw=()=>{
+    const on=localStorage.getItem('marketMaintenanceMode')==='1';
+    if(toggle)toggle.checked=on;
+    if(status){
+      status.textContent=on?'Включен':'Изключен';
+      status.className=on?'admin-status-on':'admin-status-off';
+    }
+  };
+  toggle?.addEventListener('change',()=>{
+    localStorage.setItem('marketMaintenanceMode',toggle.checked?'1':'0');
+    draw();
+  });
+  draw();
+
+  document.addEventListener('click',e=>{
+    const btn=e.target.closest('[data-backup-action]');
+    if(!btn)return;
+    const s=document.querySelector('[data-backup-status]');
+    if(btn.dataset.backupAction==='snapshot'){
+      localStorage.setItem('demoBackupSnapshotAt',String(Date.now()));
+      if(s)s.textContent='Тестовият backup е отбелязан като създаден. Реалната операция ще се изпълнява от backend/Supabase.';
+    }
+    if(btn.dataset.backupAction==='restore-check'){
+      localStorage.setItem('demoRestoreCheckAt',String(Date.now()));
+      if(s)s.textContent='Restore checklist е маркиран за проверка. В production това трябва да е реален тест за възстановяване.';
+    }
+  });
+})();
