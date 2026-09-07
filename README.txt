@@ -1,29 +1,19 @@
-TEHNIKA v2.11
+TEHNIKA v2.12
 
-PASSWORD FLOW
-- Profile no longer uses "send password reset link" as the normal password-change method.
-- Logged-in change password flow is:
-  old password -> new password -> confirm new password.
-- "Забравена парола?" stays available before login and from the explicit link.
-- forgot-password.html sends an email-reset request UI.
+PROFILE REDESIGN
+- The old profile page no longer shows every form and setting at once.
+- New clean profile hub:
+  * compact profile summary
+  * quick stats
+  * grouped navigation rows
+  * clear sections: "Моето съдържание", "Профил и настройки", "Помощ и още"
+  * centered logout action
+- The visual idea is a clean mobile account hub, adapted to the existing marketplace style rather than copied from another app.
 
-OTHER ACCEPTED FEATURES
-- Exact model / product-code search support and exact-match priority.
-- Rules-based chat warning for card data, PIN/CVV/SMS codes and suspicious external links.
-- Removed listings show the moderation reason and allow "Поискай преглед".
-- Moderation admin has a sample appeal row.
-- Profile has "Изтегли моите данни" and protected "Изтрий акаунта" controls.
-- Professional seller profile has a separate legal/trader-data block.
-- Admin Maintenance mode prepared: browsing remains available, posting/new messaging is disabled.
-- Admin backup/restore checklist prepared.
+NEW PROFILE SUBPAGES
+- profile-edit.html — name, phone, city and default contact setting
+- account-security.html — email change, old/new/confirm password, sessions and security history
+- profile-settings.html — PWA install, push and email notification preferences
+- data-rights.html — data export and protected account deletion
 
-BACKEND NOTES
-The following are frontend-ready but become real with Supabase/backend:
-- verifying the old password and changing auth password;
-- sending the actual reset email;
-- exporting real account data;
-- irreversible account deletion;
-- server-side moderation appeal workflow;
-- server-side chat safety enforcement / audit as legally appropriate;
-- real maintenance enforcement;
-- real automated backups and tested restore procedures.
+All previously accepted password/security/data-rights behavior remains available, but is now organized into dedicated screens.

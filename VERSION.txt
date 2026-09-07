@@ -1,2 +1,2 @@
-tehnika v2.11
-Password flow correction + exact code search + safety/moderation/GDPR/admin operations
+tehnika v2.12
+Clean grouped profile hub with dedicated settings pages
