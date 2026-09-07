@@ -2070,4 +2070,101 @@
     });
   })();
 
+
+  // v2.16 notifications + chat behavior.
+  (function marketV216(){
+    const $=(s,r=document)=>r.querySelector(s);
+    const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+
+    // Whole notification row opens its destination.
+    $$('.notice[data-notification-link]').forEach(n=>{
+      const open=()=>{
+        const href=n.dataset.notificationLink;
+        if(href)location.href=href;
+      };
+      n.addEventListener('click',e=>{
+        if(e.target.closest('a,button'))return;
+        open();
+      });
+      n.addEventListener('keydown',e=>{
+        if(e.key==='Enter'||e.key===' '){
+          e.preventDefault();open();
+        }
+      });
+    });
+
+    const composer=$('[data-chat-composer]');
+    const form=$('[data-chat-form]');
+    const input=$('[data-chat-input]');
+    const quick=$('[data-quick-replies]');
+    const thread=$('[data-chat-thread-demo]') || $('[data-message-list]');
+
+    const hasConversationHistory=()=>{
+      if($$('.chat-bubble').length>0)return true;
+      if(thread?.dataset?.hasHistory==='1')return true;
+      return false;
+    };
+
+    const syncQuickReplies=()=>{
+      if(!quick)return;
+      quick.hidden=hasConversationHistory();
+    };
+    syncQuickReplies();
+
+    // Autogrow textarea.
+    const grow=()=>{
+      if(!input)return;
+      input.style.height='auto';
+      input.style.height=Math.min(input.scrollHeight,110)+'px';
+    };
+    input?.addEventListener('input',grow);
+    grow();
+
+    // Send with submit; Enter sends, Shift+Enter creates a new line.
+    input?.addEventListener('keydown',e=>{
+      if(e.key==='Enter'&&!e.shiftKey){
+        e.preventDefault();
+        form?.requestSubmit();
+      }
+    });
+
+    form?.addEventListener('submit',e=>{
+      e.preventDefault();
+      const text=(input?.value||'').trim();
+      if(!text)return;
+
+      const host=$('[data-chat-thread-demo]') || thread;
+      if(!host)return;
+
+      const bubble=document.createElement('div');
+      bubble.className='chat-bubble outgoing';
+      const now=new Date();
+      const hh=String(now.getHours()).padStart(2,'0');
+      const mm=String(now.getMinutes()).padStart(2,'0');
+      bubble.innerHTML=`<div class="chat-bubble-text"></div><span class="chat-bubble-time">${hh}:${mm}</span>`;
+      bubble.querySelector('.chat-bubble-text').textContent=text;
+      host.appendChild(bubble);
+
+      input.value='';
+      grow();
+      if(quick)quick.hidden=true;
+
+      // In a real chat this will be replaced by the backend send result.
+      localStorage.setItem('demoLastChatMessageAt',String(Date.now()));
+
+      requestAnimationFrame(()=>{
+        bubble.scrollIntoView({behavior:'smooth',block:'end'});
+        input.focus();
+      });
+    });
+
+    // On opening a conversation, go to the newest messages.
+    if(file==='messages.html'){
+      setTimeout(()=>{
+        const last=$('.chat-bubble:last-child');
+        last?.scrollIntoView({block:'end'});
+      },60);
+    }
+  })();
+
 })();
