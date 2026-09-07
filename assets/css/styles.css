@@ -3489,3 +3489,148 @@ img[data-blur-load].is-loaded{
     font-size:10px;
   }
 }
+
+
+/* ===== v2.17 chat internal scrolling fix ===== */
+@media(max-width:760px){
+  html:has(body.messages-page),
+  body.messages-page{
+    height:100%;
+    overflow:hidden!important;
+    overscroll-behavior:none;
+  }
+
+  body.messages-page{
+    height:100dvh;
+    padding-bottom:0!important;
+    display:flex;
+    flex-direction:column;
+    background:#f4f6f8;
+  }
+
+  body.messages-page .site-header{
+    position:relative!important;
+    top:auto!important;
+    flex:0 0 60px;
+  }
+
+  body.messages-page .safety-ticker{
+    flex:0 0 34px;
+  }
+
+  body.messages-page main.page{
+    flex:1 1 auto;
+    min-height:0;
+    height:auto!important;
+    padding:10px 0 0!important;
+    overflow:hidden!important;
+  }
+
+  body.messages-page main.page>.container{
+    width:calc(100% - 20px);
+    height:100%;
+    min-height:0;
+    overflow:hidden;
+  }
+
+  body.messages-page .chat-shell{
+    height:100%!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow:hidden!important;
+  }
+
+  body.messages-page .conversation-list{
+    min-height:0!important;
+    max-height:none!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+  }
+
+  body.messages-page .chat-pane{
+    min-height:0!important;
+    height:100%!important;
+    max-height:none!important;
+    overflow:hidden!important;
+    flex-direction:column!important;
+  }
+
+  body.messages-page .chat-product{
+    flex:0 0 auto;
+  }
+
+  body.messages-page .chat-blocked-banner,
+  body.messages-page .chat-risk-warning{
+    flex:0 0 auto;
+  }
+
+  body.messages-page .chat-messages{
+    flex:1 1 auto!important;
+    min-height:0!important;
+    height:auto!important;
+    max-height:none!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+    padding:14px!important;
+    padding-bottom:18px!important;
+  }
+
+  body.messages-page .chat-composer-wrap{
+    position:relative!important;
+    left:auto!important;
+    right:auto!important;
+    bottom:auto!important;
+    flex:0 0 auto;
+    margin:0!important;
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px))!important;
+  }
+
+  body.messages-page .footer{
+    display:none!important;
+  }
+
+  /* The bottom navigation remains fixed outside the chat workspace. */
+  body.messages-page .mobile-bottom{
+    flex:0 0 auto;
+  }
+}
+
+
+/* ===== v2.18 chat refresh + single online status ===== */
+
+/* Legacy online marker is retired permanently. */
+.conversation-online-dot{
+  display:none!important;
+}
+
+/* Exactly one simple status dot on the avatar. */
+.avatar-online-dot{
+  right:-1px!important;
+  bottom:-1px!important;
+  width:11px!important;
+  height:11px!important;
+  border:2px solid #fff!important;
+  border-radius:50%!important;
+  background:#2bad72!important;
+  box-shadow:none!important;
+}
+
+/* The open-chat text can say "Онлайн сега", but should not show another green dot. */
+.chat-presence>.online-dot{
+  display:none!important;
+}
+
+/* Existing conversations never show preset quick messages. */
+.chat-messages[data-has-history="1"] ~ [data-quick-replies],
+.chat-pane:has(.chat-messages[data-has-history="1"]) [data-quick-message],
+.chat-pane:has(.chat-messages[data-has-history="1"]) .quick-replies,
+.chat-pane:has(.chat-messages[data-has-history="1"]) .chat-quick-replies,
+.chat-pane:has(.chat-messages[data-has-history="1"]) .quick-messages{
+  display:none!important;
+}
