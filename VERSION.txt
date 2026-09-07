@@ -1,2 +1,2 @@
-tehnika v2.13
-Mobile navigation cleanup: Home/Favorites/Add/Chat/Profile + notification bell
+tehnika v2.15
+Chat badge, notification filters, recent search, overflow menus, archived chats, cookie preferences and accessibility

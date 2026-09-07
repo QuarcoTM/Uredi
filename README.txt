@@ -1,20 +1,43 @@
-TEHNIKA v2.13
+TEHNIKA v2.15
 
-MOBILE NAVIGATION
-- Removed the duplicate "Обяви" tab from the bottom navigation.
-- Bottom navigation is now:
-  Начало | Любими | Добави | Чат | Профил
-- "Начало" uses a modern house icon instead of a search icon.
-- Active tab is clearer with blue text/icon and a tiny discreet active marker.
-- The Add control stays integrated in the navigation bar, not protruding.
-- Tapping the already-open main tab again scrolls that page to the top.
+MOBILE / NAVIGATION
+- Keeps the v2.14 mobile notification-bell visibility fix.
+- Adds unread-count badge to the bottom "Чат" tab.
+- Corrects active bottom-navigation state, including Favorites.
 
-MOBILE HEADER
-- The former Favorites heart in the top header is replaced by Notifications.
-- Mobile header is now intentionally:
-  logo | search | notification bell
-- The bell shows a compact unread-count badge only when unread notifications exist.
-- Desktop header behavior remains unchanged because desktop does not use the bottom mobile navigation.
+NOTIFICATIONS
+- Filters: Всички / Съобщения / Цени / Обяви / Система.
+- "Маркирай всички като прочетени".
+- Bell unread count updates with read state.
 
-PROTOTYPE NOTE
-- The unread counter is local prototype state. Supabase/backend will later provide the real unread count.
+SEARCH
+- Empty focused search field can show up to 5 recent searches.
+- Recent searches are stored locally and can be removed individually or cleared.
+- No filter state is written to URL beyond the normal search query.
+
+TRUST
+- Small "i" next to "Потвърден търговец".
+- Opens a compact explanation of what the status means and what it does not guarantee.
+
+CLEANER ACTIONS
+- "Моите обяви" uses 3-dot action menus instead of a permanent row of buttons.
+- Chat uses a 3-dot menu for Archive / Block / Report.
+- Conversations have Active / Archived views.
+
+COOKIES
+- cookies.html now contains a preference center:
+  Necessary / Analytics / Marketing.
+- The profile hub points directly to cookie/privacy preferences.
+
+ACCESSIBILITY PASS
+- Skip-to-content link.
+- Strong focus-visible states.
+- Better aria labels and landmarks.
+- Larger touch targets on mobile.
+- Dialog/menu semantics and Escape-to-close.
+- Reduced-motion support.
+- Important state is not communicated by color alone.
+
+STATIC PROTOTYPE NOTES
+Unread counts, archives, cookie choices and recent searches use localStorage.
+Real synchronization across devices will be connected in the Supabase/backend phase.
