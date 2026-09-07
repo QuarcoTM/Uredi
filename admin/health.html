@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+
+<html lang="bg"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><title>Health · Админ</title><link href="../assets/img/favicon.png" rel="icon"/><link href="admin.css?v=2.21" rel="stylesheet"/><meta content="noindex,nofollow" name="robots"/><meta content="noindex,nofollow" name="robots"/></head><body><div class="admin-shell"><aside class="aside"><div class="aside-logo"><img alt="" src="../assets/img/logo.png"/></div><small>Администрация</small><a class="" href="index.html"><span>Табло</span></a><a class="" href="ads.html"><span>Обяви</span></a><a class="" href="users.html"><span>Потребители</span></a><a class="" href="moderation.html"><span>Модерация</span></a><a class="" href="categories.html"><span>Категории и филтри</span></a><a class="" href="brands.html"><span>Марки и модели</span></a><a class="" href="reports.html"><span>Сигнали</span></a><a class="" href="promotions.html"><span>TOP / VIP</span></a><a class="" href="settings.html"><span>Настройки</span></a><a class="active" href="health.html"><span>Health</span></a><a class="" href="audit.html"><span>Audit log</span></a></aside><main class="main"><header class="topbar"><strong>Health</strong><div>Owner · <a href="../index.html">Към сайта</a></div></header><div class="admin-content">
+<div class="health-summary">
+<div class="health-metric ok"><strong>Работи</strong><span>Frontend</span><small>Последна проверка: сега</small></div>
+<div class="health-metric ok"><strong>0</strong><span>Критични грешки</span><small>Последните 24 ч.</small></div>
+<div class="health-metric warn"><strong>2</strong><span>Предупреждения</span><small>Demo данни</small></div>
+<div class="health-metric ok"><strong>99.9%</strong><span>Цел за uptime</span><small>След backend</small></div>
+</div>
+<div class="panel">
+<div class="panel-head"><h2>Системни компоненти</h2><span class="status">Health check</span></div>
+<div class="health-services">
+<div class="health-service"><span class="health-dot ok"></span><div><strong>Database / Auth</strong><small>Ще се свърже със Supabase health</small></div><b>Готово за backend</b></div>
+<div class="health-service"><span class="health-dot ok"></span><div><strong>Storage / uploads</strong><small>Следи failed uploads и storage грешки</small></div><b>Готово за backend</b></div>
+<div class="health-service"><span class="health-dot ok"></span><div><strong>Chat / Realtime</strong><small>Latency, прекъсвания и failed sends</small></div><b>Готово за backend</b></div>
+<div class="health-service"><span class="health-dot warn"></span><div><strong>Email / Push</strong><small>Ще следи failed deliveries</small></div><b>Не е свързано</b></div>
+</div>
+</div>
+<div class="panel">
+<div class="panel-head">
+<h2>Client error monitoring</h2>
+<button class="mini-btn" data-health-clear-errors="" type="button">Изчисти локалните demo грешки</button>
+</div>
+<div class="health-error-count">Засечени в този браузър: <strong data-health-error-count="">0</strong></div>
+<div class="health-error-list" data-health-error-list="">
+<div class="empty-admin-state">Няма записани JavaScript грешки.</div>
+</div>
+</div>
+<div class="panel">
+<div class="panel-head"><h2>Последни операции</h2></div>
+<div class="health-log-row"><span>Upload pipeline</span><strong>OK</strong><small>demo · преди 3 мин.</small></div>
+<div class="health-log-row"><span>Chat send</span><strong>OK</strong><small>demo · преди 8 мин.</small></div>
+<div class="health-log-row"><span>Push delivery</span><strong>Не е свързано</strong><small>backend етап</small></div>
+</div>
+</div></main></div><script src="admin.js?v=2.21"></script></body></html>

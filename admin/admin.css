@@ -264,3 +264,28 @@ input:disabled{background:#f1f3f6;color:#7c8594}
 .backup-row>strong{font-size:11px;color:#37536f}
 .backup-actions{display:flex;gap:8px;flex-wrap:wrap;padding:0 14px 12px}
 [data-maintenance-admin],[data-backup-admin]{margin-top:14px}
+
+
+/* ===== v2.21 health dashboard ===== */
+.health-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.health-metric{
+  display:grid;gap:2px;padding:14px;border:1px solid #dfe6ed;border-radius:10px;background:#fff
+}
+.health-metric strong{font-size:20px}.health-metric span{font-weight:800}.health-metric small{color:#7f8a96}
+.health-metric.ok{border-top:3px solid #279367}.health-metric.warn{border-top:3px solid #d99b34}
+.health-services{display:grid}
+.health-service{
+  display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:10px;align-items:center;
+  padding:11px 14px;border-top:1px solid #edf1f4
+}
+.health-service:first-child{border-top:0}.health-service>div{display:grid;gap:2px}
+.health-service small{color:#7d8894}.health-service>b{font-size:10px;color:#55687b}
+.health-dot{width:9px;height:9px;border-radius:50%}.health-dot.ok{background:#2b986c}.health-dot.warn{background:#d99b34}
+.health-error-count{padding:10px 14px;border-bottom:1px solid #edf1f4}
+.health-error-list{display:grid}
+.health-error-row{padding:10px 14px;border-top:1px solid #edf1f4;display:grid;gap:2px}
+.health-error-row code{font-size:10px;color:#9d4843}.health-error-row small{color:#7c8794}
+.empty-admin-state{padding:20px;text-align:center;color:#84909b}
+.health-log-row{display:grid;grid-template-columns:1fr auto auto;gap:12px;padding:10px 14px;border-top:1px solid #edf1f4}
+.health-log-row small{color:#7f8a95}
+@media(max-width:900px){.health-summary{grid-template-columns:1fr 1fr}}

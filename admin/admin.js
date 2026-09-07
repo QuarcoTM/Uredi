@@ -121,3 +121,28 @@ document.querySelectorAll('table').forEach(table=>{
     }
   });
 })();
+
+
+// v2.21 Admin Health: read local client-error buffer.
+(function healthV221(){
+  const list=document.querySelector('[data-health-error-list]');
+  const count=document.querySelector('[data-health-error-count]');
+  if(!list&&!count)return;
+  const key='marketClientErrorsV221';
+  const read=()=>{try{return JSON.parse(localStorage.getItem(key)||'[]')}catch(e){return[]}};
+  const render=()=>{
+    const arr=read();
+    if(count)count.textContent=String(arr.length);
+    if(list){
+      list.innerHTML=arr.length?arr.slice(0,20).map(x=>`
+        <div class="health-error-row">
+          <code>${String(x.message||'Грешка').replace(/[<>&"]/g,'')}</code>
+          <small>${String(x.page||'')} · ${String(x.time||'')}</small>
+        </div>`).join(''):'<div class="empty-admin-state">Няма записани JavaScript грешки.</div>';
+    }
+  };
+  document.querySelector('[data-health-clear-errors]')?.addEventListener('click',()=>{
+    localStorage.removeItem(key);render();
+  });
+  render();
+})();
