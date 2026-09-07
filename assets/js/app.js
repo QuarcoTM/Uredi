@@ -2205,68 +2205,7 @@
   })();
 
 
-  // v2.17 chat uses its own internal scroll container on mobile.
-  (function chatScrollV217(){
-    const scroller=document.querySelector('[data-chat-scroll]');
-    const form=document.querySelector('[data-chat-form]');
-    const input=document.querySelector('[data-chat-input]');
 
-    const scrollToLatest=(smooth=false)=>{
-      if(!scroller)return;
-      if(smooth){
-        scroller.scrollTo({top:scroller.scrollHeight,behavior:'smooth'});
-      }else{
-        scroller.scrollTop=scroller.scrollHeight;
-      }
-    };
-
-    if(scroller){
-      // Keep the main document fixed; only this element scrolls.
-      requestAnimationFrame(()=>scrollToLatest(false));
-      setTimeout(()=>scrollToLatest(false),80);
-    }
-
-    // Capture submit before the older v2.16 handler so only one outgoing
-    // message is inserted, directly into the true chat scroller.
-    form?.addEventListener('submit',e=>{
-      e.preventDefault();
-      e.stopImmediatePropagation();
-
-      const text=(input?.value||'').trim();
-      if(!text||!scroller)return;
-
-      const row=document.createElement('div');
-      row.className='bubble-row me';
-
-      const bubble=document.createElement('div');
-      bubble.className='bubble';
-
-      const textNode=document.createElement('div');
-      textNode.textContent=text;
-
-      const time=document.createElement('div');
-      time.className='bubble-time';
-      const now=new Date();
-      time.textContent=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
-
-      bubble.append(textNode,time);
-      row.appendChild(bubble);
-      scroller.appendChild(row);
-
-      input.value='';
-      input.style.height='auto';
-      document.querySelector('[data-quick-replies]')?.setAttribute('hidden','');
-      localStorage.setItem('demoLastChatMessageAt',String(Date.now()));
-
-      requestAnimationFrame(()=>scrollToLatest(true));
-      input.focus();
-    },true);
-
-    // When switching from conversation list to chat, land on the latest message.
-    document.querySelectorAll('.conversation').forEach(c=>{
-      c.addEventListener('click',()=>setTimeout(()=>scrollToLatest(false),40));
-    });
-  })();
 
 
   // v2.18 cleanup for existing conversations.
@@ -2302,6 +2241,328 @@
 
     // Textual status in the open-chat header can remain, but not a second green dot.
     document.querySelectorAll('.chat-presence .online-dot,.chat-presence .conversation-online-dot').forEach(x=>x.remove());
+  })();
+
+
+
+
+
+  // v2.21 consolidated chat: drafts, delivery status, unread divider, typing and images.
+  (function chatV221(){
+    const $=(s,r=document)=>r.querySelector(s);
+    const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+    const scroller=$('[data-chat-scroll]');
+    const form=$('[data-chat-form]');
+    const input=$('[data-chat-input]');
+    const picker=$('[data-chat-image-picker]');
+    const fileInput=$('[data-chat-image-input]');
+    const preview=$('[data-chat-image-preview]');
+    const previewImg=$('[data-chat-image-preview-img]');
+    const imageName=$('[data-chat-image-name]');
+    const imageMeta=$('[data-chat-image-meta]');
+    const imageRemove=$('[data-chat-image-remove]');
+    const typing=$('[data-typing-indicator]');
+    const jump=$('[data-chat-jump-bottom]');
+    if(!scroller||!form||!input)return;
+
+    const getConversationId=()=>sessionStorage.getItem('marketActiveConversationV218')||'conv-1';
+    const draftKey=()=>`marketChatDraft:${getConversationId()}`;
+    let selectedFile=null,objectUrl=null,typingTimer=null;
+
+    const fmt=n=>n<1024?`${n} B`:n<1048576?`${Math.round(n/1024)} KB`:`${(n/1048576).toFixed(1)} MB`;
+    const nearBottom=()=>scroller.scrollHeight-scroller.scrollTop-scroller.clientHeight<80;
+    const scrollBottom=(smooth=false)=>scroller.scrollTo({top:scroller.scrollHeight,behavior:smooth?'smooth':'auto'});
+
+    // Draft persistence per conversation.
+    const loadDraft=()=>{
+      input.value=localStorage.getItem(draftKey())||'';
+      input.style.height='auto';
+      input.style.height=Math.min(input.scrollHeight,110)+'px';
+    };
+    loadDraft();
+    input.addEventListener('input',()=>{
+      localStorage.setItem(draftKey(),input.value);
+      input.style.height='auto';
+      input.style.height=Math.min(input.scrollHeight,110)+'px';
+    });
+
+    $$('.conversation').forEach(c=>c.addEventListener('click',()=>{
+      setTimeout(loadDraft,0);
+    }));
+
+    // Unread divider before first unread demo message.
+    const unread=$('[data-unread-message]',scroller);
+    if(unread&&!$('.chat-new-divider',scroller)){
+      const divider=document.createElement('div');
+      divider.className='chat-new-divider';
+      divider.textContent='Нови съобщения';
+      unread.before(divider);
+    }
+
+    // Jump-to-bottom button.
+    const syncJump=()=>{if(jump)jump.hidden=nearBottom()};
+    scroller.addEventListener('scroll',syncJump,{passive:true});
+    jump?.addEventListener('click',()=>scrollBottom(true));
+    requestAnimationFrame(()=>{scrollBottom(false);syncJump()});
+
+    // Image picker + preview.
+    const clearImage=()=>{
+      selectedFile=null;
+      if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=null}
+      if(fileInput)fileInput.value='';
+      if(preview)preview.hidden=true;
+      previewImg?.removeAttribute('src');
+      if(imageName)imageName.textContent='Снимка';
+      if(imageMeta)imageMeta.textContent='';
+    };
+    picker?.addEventListener('click',()=>fileInput?.click());
+    fileInput?.addEventListener('change',()=>{
+      const file=fileInput.files?.[0];
+      if(!file){clearImage();return}
+      if(!['image/jpeg','image/png','image/webp'].includes(file.type)){
+        clearImage();window.marketToast?.('Разрешени са JPG, PNG и WebP снимки.');return;
+      }
+      if(file.size>10*1024*1024){
+        clearImage();window.marketToast?.('Снимката е прекалено голяма. Максимум 10 MB.');return;
+      }
+      selectedFile=file;
+      if(objectUrl)URL.revokeObjectURL(objectUrl);
+      objectUrl=URL.createObjectURL(file);
+      if(previewImg)previewImg.src=objectUrl;
+      if(imageName)imageName.textContent=file.name||'Снимка';
+      if(imageMeta)imageMeta.textContent=fmt(file.size);
+      if(preview)preview.hidden=false;
+    });
+    imageRemove?.addEventListener('click',clearImage);
+
+    const statusFor=(bubble)=>{
+      const status=document.createElement('div');
+      status.className='bubble-delivery-status';
+      status.textContent='Изпраща се…';
+      bubble.appendChild(status);
+      return status;
+    };
+
+    const finishDelivery=(status,row)=>{
+      setTimeout(()=>{
+        if(navigator.onLine){
+          status.textContent='Изпратено';
+          status.classList.remove('failed');
+        }else{
+          status.classList.add('failed');
+          status.innerHTML='Неуспешно · <button type="button" class="bubble-retry">Опитай пак</button>';
+          status.querySelector('.bubble-retry')?.addEventListener('click',()=>{
+            status.textContent='Изпраща се…';status.classList.remove('failed');
+            finishDelivery(status,row);
+          },{once:true});
+        }
+      },500);
+    };
+
+    const showTyping=()=>{
+      if(!typing)return;
+      typing.hidden=false;
+      clearTimeout(typingTimer);
+      typingTimer=setTimeout(()=>{typing.hidden=true},1600);
+    };
+
+    // Single authoritative submit handler.
+    form.addEventListener('submit',e=>{
+      e.preventDefault();e.stopImmediatePropagation();
+      const text=input.value.trim();
+      if(!text&&!selectedFile)return;
+
+      const row=document.createElement('div');
+      row.className='bubble-row me';
+      const bubble=document.createElement('div');
+      bubble.className='bubble';
+
+      if(selectedFile&&objectUrl){
+        const image=document.createElement('img');
+        image.className='chat-bubble-image';
+        image.src=objectUrl;
+        image.alt='Изпратена снимка';
+        bubble.appendChild(image);
+        objectUrl=null; // keep current demo URL alive in the sent bubble
+      }
+      if(text){
+        const t=document.createElement('div');t.textContent=text;bubble.appendChild(t);
+      }
+
+      const time=document.createElement('div');
+      time.className='bubble-time';
+      const now=new Date();
+      time.textContent=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+      bubble.appendChild(time);
+      const delivery=statusFor(bubble);
+
+      row.appendChild(bubble);
+      scroller.appendChild(row);
+
+      input.value='';input.style.height='auto';
+      localStorage.removeItem(draftKey());
+      selectedFile=null;
+      if(fileInput)fileInput.value='';
+      if(preview)preview.hidden=true;
+      previewImg?.removeAttribute('src');
+      if(imageName)imageName.textContent='Снимка';
+      if(imageMeta)imageMeta.textContent='';
+
+      finishDelivery(delivery,row);
+      showTyping();
+      requestAnimationFrame(()=>{scrollBottom(true);syncJump();input.focus()});
+    },true);
+
+    input.addEventListener('keydown',e=>{
+      if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();form.requestSubmit()}
+    });
+  })();
+
+  // v2.21 suspicious-auth guard: rate limiting + CAPTCHA placeholder only after rapid failures.
+  (function authGuardV221(){
+    const challenge=document.querySelector('[data-suspicious-check]');
+    if(!challenge)return;
+    const human=challenge.querySelector('[data-human-check]');
+    const key='marketAuthAttemptsV221';
+
+    const getAttempts=()=>{try{return JSON.parse(sessionStorage.getItem(key)||'[]')}catch(e){return[]}};
+    const addAttempt=()=>{
+      const now=Date.now();
+      const arr=[...getAttempts().filter(t=>now-t<60000),now];
+      sessionStorage.setItem(key,JSON.stringify(arr));
+      if(arr.length>=3)challenge.hidden=false;
+      return arr.length;
+    };
+    const permitted=()=>challenge.hidden||!!human?.checked;
+
+    const login=document.querySelector('[data-login-submit]');
+    login?.addEventListener('click',()=>{
+      const email=document.querySelector('[data-auth-email]')?.value.trim()||'';
+      const pass=document.querySelector('[data-auth-password]')?.value||'';
+      if(!email||!pass){addAttempt();window.marketToast?.('Попълни email и парола.');return}
+      if(!permitted()){window.marketToast?.('Потвърди защитната проверка.');return}
+      sessionStorage.removeItem(key);location.href='profile.html';
+    });
+
+    const register=document.querySelector('[data-register-submit]');
+    register?.addEventListener('click',()=>{
+      const name=document.querySelector('[data-register-name]')?.value.trim()||'';
+      const email=document.querySelector('[data-register-email]')?.value.trim()||'';
+      const pass=document.querySelector('[data-register-password]')?.value||'';
+      if(!name||!email||pass.length<8){addAttempt();window.marketToast?.('Провери име, email и парола минимум 8 символа.');return}
+      if(!permitted()){window.marketToast?.('Потвърди защитната проверка.');return}
+      sessionStorage.removeItem(key);location.href='verify-email.html';
+    });
+  })();
+
+  // v2.21 security sessions / passkey prototype.
+  (function securityV221(){
+    document.addEventListener('click',e=>{
+      const revoke=e.target.closest('[data-revoke-session]');
+      if(revoke){
+        const id=revoke.dataset.revokeSession;
+        document.querySelectorAll(`[data-session-row="${CSS.escape(id)}"]`).forEach(x=>x.remove());
+        document.querySelector('[data-security-alert]')?.remove();
+        localStorage.setItem('revokedSession:'+id,String(Date.now()));
+        window.marketToast?.('Сесията е прекратена.');
+      }
+      const passkey=e.target.closest('[data-passkey-setup]');
+      if(passkey){
+        localStorage.setItem('demoPasskeyConfiguredAt',String(Date.now()));
+        const status=document.querySelector('[data-passkey-status]');
+        if(status)status.textContent='Настроен на това устройство';
+        passkey.textContent='Passkey е настроен';
+        passkey.disabled=true;
+        window.marketToast?.('Passkey е добавен в прототипа.');
+      }
+    });
+  })();
+
+  // v2.21 client-side error monitoring buffer for Admin Health.
+  (function errorMonitorV221(){
+    const key='marketClientErrorsV221';
+    const push=(payload)=>{
+      let arr=[];try{arr=JSON.parse(localStorage.getItem(key)||'[]')}catch(e){}
+      arr.unshift({...payload,time:new Date().toISOString(),page:location.pathname});
+      localStorage.setItem(key,JSON.stringify(arr.slice(0,50)));
+    };
+    window.addEventListener('error',e=>push({type:'error',message:e.message||'Unknown error',source:e.filename||'',line:e.lineno||0}));
+    window.addEventListener('unhandledrejection',e=>push({type:'promise',message:String(e.reason?.message||e.reason||'Unhandled promise rejection')}));
+    window.marketLogError=(message,extra={})=>push({type:'manual',message,...extra});
+  })();
+
+
+  // v2.22 mobile keyboard handling + custom brand field.
+  (function marketV222(){
+    const $=(s,r=document)=>r.querySelector(s);
+
+    // ----- "Друга марка" in posting form.
+    const brand=$('[data-ad-brand]');
+    const otherField=$('[data-other-brand-field]');
+    const otherInput=$('[data-other-brand-input]');
+
+    const syncOtherBrand=()=>{
+      if(!brand||!otherField||!otherInput)return;
+      const isOther=brand.value==='Друга';
+      otherField.hidden=!isOther;
+      if(isOther){
+        otherInput.setAttribute('data-smart-required','');
+        otherInput.setAttribute('aria-required','true');
+      }else{
+        otherInput.removeAttribute('data-smart-required');
+        otherInput.removeAttribute('aria-required');
+        otherInput.value='';
+        otherInput.closest('.field')?.classList.remove('field-error');
+        otherInput.closest('.field')?.querySelector('.field-error-message')?.remove();
+      }
+    };
+    brand?.addEventListener('change',syncOtherBrand);
+    syncOtherBrand();
+
+    // ----- iPhone / mobile keyboard: resize chat to the visual viewport.
+    const body=document.body;
+    const input=$('[data-chat-input]');
+    const scroller=$('[data-chat-scroll]');
+
+    if(body.classList.contains('messages-page') && input){
+      const vv=window.visualViewport;
+
+      const updateViewport=()=>{
+        const height=vv?.height || window.innerHeight;
+        document.documentElement.style.setProperty('--chat-visible-height',`${Math.round(height)}px`);
+
+        const keyboardLikelyOpen =
+          document.activeElement===input &&
+          (window.innerHeight-height)>120;
+
+        body.classList.toggle('chat-keyboard-open',keyboardLikelyOpen);
+
+        if(keyboardLikelyOpen && scroller){
+          requestAnimationFrame(()=>{
+            scroller.scrollTop=scroller.scrollHeight;
+          });
+        }
+      };
+
+      vv?.addEventListener('resize',updateViewport);
+      vv?.addEventListener('scroll',updateViewport);
+      window.addEventListener('resize',updateViewport);
+      input.addEventListener('focus',()=>setTimeout(updateViewport,40));
+      input.addEventListener('blur',()=>setTimeout(updateViewport,80));
+      updateViewport();
+
+      // After sending on mobile, close the keyboard instead of leaving it over the chat.
+      const form=$('[data-chat-form]');
+      form?.addEventListener('submit',()=>{
+        if(matchMedia('(max-width:760px)').matches){
+          setTimeout(()=>{
+            input.blur();
+            body.classList.remove('chat-keyboard-open');
+            updateViewport();
+          },80);
+        }
+      });
+    }
   })();
 
 })();

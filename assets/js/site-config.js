@@ -82,5 +82,15 @@ window.SITE_CONFIG={
   overflowMenusEnabled:true,
   archivedConversationsEnabled:true,
   cookiePreferenceCenterEnabled:true,
-  accessibilityPassV215:true
+  accessibilityPassV215:true,
+  messageDeliveryStatusEnabled:true,
+  chatDraftsEnabled:true,
+  unreadDividerEnabled:true,
+  typingIndicatorPrepared:true,
+  suspiciousAuthProtectionPrepared:true,
+  deviceSessionAlertsPrepared:true,
+  passkeyPrepared:true,
+  adminHealthEnabled:true,
+  clientErrorMonitoringEnabled:true,
+  privatePagesNoindex:true
 };
