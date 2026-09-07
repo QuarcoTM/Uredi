@@ -1,43 +1,18 @@
-TEHNIKA v2.15
+TEHNIKA v2.16
 
-MOBILE / NAVIGATION
-- Keeps the v2.14 mobile notification-bell visibility fix.
-- Adds unread-count badge to the bottom "Чат" tab.
-- Corrects active bottom-navigation state, including Favorites.
+FIXES
+- Notifications no longer use the large ugly "Виж" buttons.
+- The entire notification row is clickable and has only a small chevron on the right.
+- Maria's online status dot is now positioned on the avatar, bottom-right, with a white outline.
 
-NOTIFICATIONS
-- Filters: Всички / Съобщения / Цени / Обяви / Система.
-- "Маркирай всички като прочетени".
-- Bell unread count updates with read state.
+CHAT
+- Quick preset messages are hidden once a real conversation already contains messages.
+- A real message composer is always visible at the bottom:
+  attach icon / "Напиши съобщение…" / send button.
+- Enter sends; Shift+Enter makes a new line.
+- New outgoing demo messages appear immediately in the thread.
+- Opening the chat scrolls to the newest messages.
+- Mobile composer stays above the fixed bottom navigation and respects iPhone safe-area spacing.
 
-SEARCH
-- Empty focused search field can show up to 5 recent searches.
-- Recent searches are stored locally and can be removed individually or cleared.
-- No filter state is written to URL beyond the normal search query.
-
-TRUST
-- Small "i" next to "Потвърден търговец".
-- Opens a compact explanation of what the status means and what it does not guarantee.
-
-CLEANER ACTIONS
-- "Моите обяви" uses 3-dot action menus instead of a permanent row of buttons.
-- Chat uses a 3-dot menu for Archive / Block / Report.
-- Conversations have Active / Archived views.
-
-COOKIES
-- cookies.html now contains a preference center:
-  Necessary / Analytics / Marketing.
-- The profile hub points directly to cookie/privacy preferences.
-
-ACCESSIBILITY PASS
-- Skip-to-content link.
-- Strong focus-visible states.
-- Better aria labels and landmarks.
-- Larger touch targets on mobile.
-- Dialog/menu semantics and Escape-to-close.
-- Reduced-motion support.
-- Important state is not communicated by color alone.
-
-STATIC PROTOTYPE NOTES
-Unread counts, archives, cookie choices and recent searches use localStorage.
-Real synchronization across devices will be connected in the Supabase/backend phase.
+Static prototype note:
+Actual message sending and image attachment will be connected to Supabase/backend later.
