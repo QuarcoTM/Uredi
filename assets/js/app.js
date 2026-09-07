@@ -1747,4 +1747,18 @@
     }
   })();
 
+
+  // v2.12 profile hub actions
+  (function profileHubV212(){
+    document.querySelector('[data-profile-save]')?.addEventListener('click',()=>{
+      localStorage.setItem('demoProfileUpdatedAt',String(Date.now()));
+      window.marketToast?.('Промените в профила са запазени.');
+    });
+
+    document.querySelector('[data-profile-logout]')?.addEventListener('click',()=>{
+      localStorage.setItem('demoLoggedOutAt',String(Date.now()));
+      location.href='login.html';
+    });
+  })();
+
 })();
