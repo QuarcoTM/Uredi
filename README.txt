@@ -1,20 +1,23 @@
-TEHNIKA v2.22
+TEHNIKA v2.24
 
-CHAT
-- Messages sent by the logged-in user are explicitly aligned RIGHT.
-- Received messages are explicitly aligned LEFT.
-- On mobile/iPhone, the chat follows the visible viewport when the keyboard opens.
-- While typing, non-essential header/ticker/bottom navigation temporarily hide to leave usable space for the conversation.
-- After sending on mobile, the textarea releases focus so the keyboard closes instead of covering the chat.
+Completed without Supabase:
+- Static accessibility and form-label audit across public + admin HTML.
+- Product alt-text cleanup; decorative images remain correctly empty.
+- Low-contrast helper text darkened.
+- Strong focus-visible states and mobile touch-target safeguards.
+- Cookie banner now says "Приемам всички".
+- Future analytics/marketing scripts are blocked until explicit consent.
+- Contact/report privacy notices added.
+- FREE BETA legal text corrected; future payment/refund handling clarified.
+- User-uploaded photo/content rights clause added.
+- Data-minimisation language added to Privacy.
+- Private/admin noindex rechecked.
+- No external scripts, external styles, iframes or external images detected.
 
-POST AD
-- Choosing "Друга марка" now opens a required text field:
-  "Каква е марката?"
-- The custom brand field is hidden for all predefined brands and is validated only when needed.
+Still requires before public launch:
+- real operator/business details;
+- Bulgarian lawyer review;
+- licence/source confirmation for platform-owned image assets;
+- repeat accessibility audit after Supabase/real content.
 
-HOME / "НОВО ДОБАВЕНИ"
-- Every latest-listing card now shows the appliance type above its title:
-  e.g. Сушилня / Хладилник / Съдомиялна / Фурна.
-- This makes demo/test cards understandable even if images are missing.
-
-All v2.21 security, Admin Health, chat reliability and noindex work remain included.
+See AUDIT_v2.24.md.
