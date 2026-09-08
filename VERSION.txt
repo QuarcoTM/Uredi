@@ -1,2 +1,2 @@
-tehnika v2.24
-Frontend accessibility, consent, legal/content, forms and third-party audit
+tehnika v2.27
+Active / archived conversation tabs fixed

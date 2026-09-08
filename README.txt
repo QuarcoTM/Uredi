@@ -1,23 +1,14 @@
-TEHNIKA v2.24
+TEHNIKA v2.27
 
-Completed without Supabase:
-- Static accessibility and form-label audit across public + admin HTML.
-- Product alt-text cleanup; decorative images remain correctly empty.
-- Low-contrast helper text darkened.
-- Strong focus-visible states and mobile touch-target safeguards.
-- Cookie banner now says "Приемам всички".
-- Future analytics/marketing scripts are blocked until explicit consent.
-- Contact/report privacy notices added.
-- FREE BETA legal text corrected; future payment/refund handling clarified.
-- User-uploaded photo/content rights clause added.
-- Data-minimisation language added to Privacy.
-- Private/admin noindex rechecked.
-- No external scripts, external styles, iframes or external images detected.
+MESSAGES / ARCHIVE FIX
+- "Активни" now shows only active conversations.
+- "Архивирани" now shows only archived conversations.
+- The previous bug was caused by .conversation { display:flex } overriding the HTML hidden attribute.
+- The fix now uses both hidden + explicit display state, so old conversations cannot remain visible in the wrong tab.
+- The selected tab is remembered locally.
+- Conversations archived from the 3-dot menu stay archived after refresh in this static prototype.
+- Archiving switches to the Archived tab immediately.
+- Undo moves the conversation back to Active.
+- Empty states were added for both tabs.
 
-Still requires before public launch:
-- real operator/business details;
-- Bulgarian lawyer review;
-- licence/source confirmation for platform-owned image assets;
-- repeat accessibility audit after Supabase/real content.
-
-See AUDIT_v2.24.md.
+Real archive state will later be stored in Supabase instead of localStorage.

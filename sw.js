@@ -1,4 +1,4 @@
-const CACHE='tehnika-v2.5';
+const CACHE='tehnika-v2.27';
 const CORE=['./index.html','./assets/css/styles.css','./assets/js/app.js','./assets/img/logo.png'];
 
 self.addEventListener('install',event=>{
