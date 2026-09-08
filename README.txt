@@ -1,22 +1,13 @@
-TEHNIKA v2.32
+TEHNIKA v2.34
 
-REALISTIC CATEGORY IMAGES
-- All 8 homepage category pictures replaced with realistic appliance renders.
-- Whole appliance visible; no cropped edges.
-- Same clean white studio look.
-- 640x640 optimized PNG files.
-- v2.31 CSS fit fix preserved.
+HOMEPAGE QUICK FILTERS FIX
+- "Нови" now opens listings filtered to condition "Ново".
+- "С гаранция" now shows only listings that have a warranty.
+- "До 200 €" now applies a real max-price filter.
+- The old ?max=200 URL is also supported for backward compatibility.
+- The old ?state=new URL is also supported for backward compatibility.
+- Warranty is shown as an active filter chip and can be removed/cleared normally.
 
-Changed vs v2.31:
-- index.html
-- sw.js
-- VERSION.txt
-- README.txt
-- assets/img/categories/washer.png
-- assets/img/categories/dryer.png
-- assets/img/categories/fridge.png
-- assets/img/categories/stove.png
-- assets/img/categories/freezer.png
-- assets/img/categories/dishwasher.png
-- assets/img/categories/oven.png
-- assets/img/categories/hob.png
+Note:
+The current static demo has no listing priced at 200 € or less, so "До 200 €"
+correctly shows the zero-results state instead of 300–700 € appliances.

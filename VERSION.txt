@@ -1,2 +1,2 @@
-tehnika v2.32
-Realistic category appliance images
+tehnika v2.34
+Homepage quick filters fixed
