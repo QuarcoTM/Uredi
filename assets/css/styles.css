@@ -4264,3 +4264,70 @@ body[data-landing-kind="category"] .listing-row[data-category-scope-hidden="1"]{
   color:#31465b;
   font-size:10px;
 }
+
+
+/* ===== v2.30 final frontend cleanup ===== */
+.logo-link{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  line-height:0;
+}
+.logo-link img{display:block}
+
+/* Keep the page itself from creating accidental horizontal scroll.
+   Components that intentionally scroll horizontally keep their own overflow. */
+html,body{
+  max-width:100%;
+  overflow-x:clip;
+}
+img,video,canvas{
+  max-width:100%;
+}
+svg{
+  max-width:100%;
+}
+pre,code{
+  max-width:100%;
+  overflow-wrap:anywhere;
+}
+
+
+/* ===== v2.31 category image fit fix ===== */
+.home-category-grid .cat-card{
+  overflow:hidden;
+}
+.home-category-grid .cat-icon{
+  width:100%!important;
+  height:84px!important;
+  padding:8px!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:12px!important;
+  background:#f5f7fa!important;
+  overflow:hidden!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+.home-category-grid .cat-icon img{
+  width:100%!important;
+  height:100%!important;
+  display:block!important;
+  object-fit:contain!important;
+  object-position:center center!important;
+  background:transparent!important;
+}
+@media(max-width:760px){
+  .home-category-grid .cat-icon{
+    height:64px!important;
+    padding:6px!important;
+    border-radius:10px!important;
+  }
+}
+@media(max-width:390px){
+  .home-category-grid .cat-icon{
+    height:58px!important;
+    padding:5px!important;
+  }
+}
