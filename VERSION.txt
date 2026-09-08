@@ -1,2 +1,2 @@
-tehnika v2.37
-Homepage link text: Всички обяви
+tehnika v2.39
+Price history and trend indicator consistency fix
