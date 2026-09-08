@@ -1,2 +1,2 @@
-tehnika v2.29
-Archived chat semantics + robust refresh/service-worker fix
+tehnika v2.31
+Оправено рязане на снимките в категориите на началната страница

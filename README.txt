@@ -1,17 +1,26 @@
-TEHNIKA v2.29
+TEHNIKA v2.31
 
-ARCHIVED CHAT
-- Removed the misleading demo text "Разговорът е приключен."
-- Archive does NOT close a conversation.
-- An archived conversation can still be opened and used.
-- A small banner explains the archived state.
-- Sending a new message from an archived chat automatically moves it back to "Активни".
-- A truly blocked/closed conversation is a different state and disables sending.
+- Оправено неправилното рязане на снимките в категориите.
+- Иконите вече стоят центрирани, с contain вместо crop.
+- Добавен е по-мек фон и вътрешен padding, за да не се лепят по ръбовете.
+- Cache-bust до v2.31.
 
-RAPID REFRESH / BROKEN UNSTYLED PAGE
-- Fixed the service-worker fallback bug.
-- Previously, if CSS/JS failed during several rapid refreshes, sw.js could return index.html for that asset request.
-- Safari then received HTML where CSS/JS was expected, causing the unstyled page and giant SVG icons.
-- Static same-origin assets now use cache-first + background refresh.
-- HTML navigation uses network-first + cached-page fallback.
-- CSS/JS/images can never fall back to HTML.
+TEHNIKA v2.30
+
+FINAL FRONTEND CLEANUP
+- All logos are clickable.
+- Broken washer image reference fixed.
+- Missing admin favicon fixed.
+- Main logo optimized for web.
+- Dynamic user/localStorage content is escaped before HTML rendering.
+- Local URLs reused from browser storage are validated.
+- Invisible control characters are removed from editable text.
+- Raw alert dialogs replaced with in-app/admin feedback.
+- Admin error monitor uses safe DOM rendering.
+- target=_blank links use noopener/noreferrer.
+- Referrer policy added.
+- Mobile horizontal overflow guard added.
+- Static bundle scanned for obvious secrets/debug code/broken links/assets.
+- Service-worker cache bumped to v2.30.
+
+See SECURITY_v2.30.md for the audit summary.
