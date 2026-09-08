@@ -3,9 +3,21 @@
   const $=(s,c=document)=>c.querySelector(s), $$=(s,c=document)=>[...c.querySelectorAll(s)];
   const store={get:(k,d=[])=>{try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set:(k,v)=>localStorage.setItem(k,JSON.stringify(v))};
   window.Market={store};
+  const marketEscapeHTML=value=>String(value??'').replace(/[&<>"']/g,ch=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+  }[ch]));
+  const marketSafeLocalURL=(value,fallback='#')=>{
+    try{
+      const u=new URL(String(value||''),location.href);
+      if(u.origin!==location.origin)return fallback;
+      if(!['http:','https:'].includes(u.protocol))return fallback;
+      return u.pathname.split('/').pop()?u.pathname.split('/').pop()+u.search+u.hash:fallback;
+    }catch(e){return fallback}
+  };
+  window.Market.escapeHTML=marketEscapeHTML;
   const fav=store.get('favorites',[]), cmp=store.get('compare',[]);
   $$('[data-favorite]').forEach(b=>{const id=b.dataset.favorite;if(fav.includes(id))b.classList.add('active');b.addEventListener('click',e=>{e.preventDefault();let a=store.get('favorites',[]);a.includes(id)?a=a.filter(x=>x!==id):a.push(id);store.set('favorites',a);b.classList.toggle('active');});});
-  $$('[data-compare]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.compare;let a=store.get('compare',[]);if(!a.includes(id)){if(a.length>=3){alert('Можеш да сравняваш до 3 обяви.');return;}a.push(id);store.set('compare',a);b.textContent='Добавено за сравнение';}}));
+  $$('[data-compare]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.compare;let a=store.get('compare',[]);if(!a.includes(id)){if(a.length>=3){window.marketToast?.('Можеш да сравняваш до 3 обяви.');return;}a.push(id);store.set('compare',a);b.textContent='Добавено за сравнение';}}));
   const phoneBtn=$('[data-phone]');if(phoneBtn)phoneBtn.addEventListener('click',()=>{phoneBtn.textContent=phoneBtn.dataset.phone;phoneBtn.classList.remove('secondary-btn');phoneBtn.classList.add('primary-btn');});
   const fbtn=$('[data-filter-toggle]'), panel=$('.filter-panel');if(fbtn&&panel)fbtn.addEventListener('click',()=>panel.classList.toggle('open'));
   const filters=$$('.filter-panel input,.filter-panel select');
@@ -155,9 +167,10 @@
         const cells=[...r.children];
         const label=cells[0]?.textContent.trim()||'';
         const value=cells[idx+1]?.textContent.trim()||'—';
-        return '<div class="mobile-compare-spec"><span>'+label+'</span><strong>'+value+'</strong></div>';
+        return '<div class="mobile-compare-spec"><span>'+marketEscapeHTML(label)+'</span><strong>'+marketEscapeHTML(value)+'</strong></div>';
       }).join('');
-      card.innerHTML='<div class="mobile-compare-head">'+(img?'<img src="'+img+'" alt="">':'')+'<div><strong>'+title+'</strong><div class="price">'+price+'</div></div></div>'+specs;
+      const safeImg=marketSafeLocalURL(img,'');
+      card.innerHTML='<div class="mobile-compare-head">'+(safeImg?'<img src="'+marketEscapeHTML(safeImg)+'" alt="">':'')+'<div><strong>'+marketEscapeHTML(title)+'</strong><div class="price">'+marketEscapeHTML(price)+'</div></div></div>'+specs;
       holder.appendChild(card);
     });
     wrap.appendChild(holder);wrap.classList.add('has-mobile-compare');
@@ -354,7 +367,7 @@
   $$('[data-ad-action]').forEach(b=>b.addEventListener('click',()=>{
     const a=b.dataset.adAction;
     const msg=a==='sold'?'Обявата е маркирана като продадена.':a==='deactivate'?'Обявата е деактивирана.':'Обявата е изтрита.';
-    alert(msg);
+    window.marketToast?.(msg);
   }));
 
 
@@ -368,7 +381,14 @@
     }
     if(file==='index.html'){
       const sec=document.querySelector('[data-recent-section]'),grid=document.querySelector('[data-recent-grid]'),items=get();
-      if(sec&&grid&&items.length){sec.style.display='';grid.innerHTML=items.slice(0,4).map(x=>`<article class="product-card"><a href="${x.href}"><img class="product-img" src="${x.image}" alt="${x.title}"></a><div class="card-body"><a href="${x.href}"><h3 class="product-title">${x.title}</h3><div class="product-specs">${x.meta}</div></a><div class="product-meta"><div class="price">${x.price}</div><span class="location">${x.location}</span></div></div></article>`).join('')}
+      if(sec&&grid&&items.length){
+        sec.style.display='';
+        grid.innerHTML=items.slice(0,4).map(x=>{
+          const href=marketSafeLocalURL(x.href,'listings.html');
+          const image=marketSafeLocalURL(x.image,'assets/img/products/washer-blue.svg');
+          return `<article class="product-card"><a href="${marketEscapeHTML(href)}"><img class="product-img" src="${marketEscapeHTML(image)}" alt="${marketEscapeHTML(x.title)}"></a><div class="card-body"><a href="${marketEscapeHTML(href)}"><h3 class="product-title">${marketEscapeHTML(x.title)}</h3><div class="product-specs">${marketEscapeHTML(x.meta)}</div></a><div class="product-meta"><div class="price">${marketEscapeHTML(x.price)}</div><span class="location">${marketEscapeHTML(x.location)}</span></div></div></article>`;
+        }).join('');
+      }
     }
   })();
 
@@ -427,12 +447,12 @@
         return;
       }
       if(!['image/jpeg','image/png','image/webp'].includes(file.type)){
-        alert('Разрешени са JPG, PNG и WebP.');
+        window.marketToast?.('Разрешени са JPG, PNG и WebP.');
         input.value='';
         return;
       }
       if(file.size>10*1024*1024){
-        alert('Снимката трябва да е до 10 MB.');
+        window.marketToast?.('Снимката трябва да е до 10 MB.');
         input.value='';
         return;
       }
@@ -667,7 +687,7 @@
       const list=p.querySelector('.price-history-popover-list');
       const rows=(btn.dataset.priceHistory||'').split(';').filter(Boolean).map(x=>{
         const [price,date]=x.split('|');
-        return `<div><span>${date||''}</span><strong>${price||''}</strong></div>`;
+        return `<div><span>${marketEscapeHTML(date||'')}</span><strong>${marketEscapeHTML(price||'')}</strong></div>`;
       }).join('');
       list.innerHTML=rows||'<div><span>Няма предишни промени.</span><strong>—</strong></div>';
       p.classList.add('open');
@@ -750,7 +770,7 @@
           if(row.value<prev){cls='down';symbol='↓'}
           else if(row.value>prev){cls='up';symbol='↑'}
         }
-        return `<div><span>${row.date}</span><strong>${row.price}</strong><em class="price-history-change ${cls}">${symbol}</em></div>`;
+        return `<div><span>${marketEscapeHTML(row.date)}</span><strong>${marketEscapeHTML(row.price)}</strong><em class="price-history-change ${cls}">${symbol}</em></div>`;
       }).join('') || '<div><span>Няма предишни промени.</span><strong>—</strong><em class="price-history-change same">•</em></div>';
 
       p.classList.add('open');
@@ -1235,7 +1255,7 @@
           labelPreview.style.display='block';
           labelPicker.textContent='Смени снимката на етикета';
         }catch(err){
-          alert(err?.message||'Снимката не можа да бъде обработена.');
+          window.marketToast?.(err?.message||'Снимката не можа да бъде обработена.');
         }
       },true);
     }
@@ -1603,7 +1623,7 @@
         });
         chips.innerHTML=active.map(([k,v])=>{
           const locked=!!baseScope[k];
-          return `<span class="filter-chip${locked?' route-locked':''}">${labelFor(k,v)} ${locked?'':`<button type="button" data-remove-filter="${k}" aria-label="Премахни">×</button>`}</span>`;
+          return `<span class="filter-chip${locked?' route-locked':''}">${marketEscapeHTML(labelFor(k,v))} ${locked?'':`<button type="button" data-remove-filter="${marketEscapeHTML(k)}" aria-label="Премахни">×</button>`}</span>`;
         }).join('');
         chipWrap.style.display=active.length?'flex':'none';
       };
@@ -2069,7 +2089,7 @@
         const items=getRecent();
         if(!items.length){close();return}
         panel.innerHTML=`<div class="recent-searches-head"><span>Последни търсения</span><button type="button" data-recent-clear-all>Изчисти</button></div>`+
-          items.map((q,i)=>`<div class="recent-search-row"><a role="option" href="listings.html?q=${encodeURIComponent(q)}">${q.replace(/[<>&"]/g,'')}</a><button type="button" data-recent-remove="${i}" aria-label="Премахни ${q.replace(/[<>&"]/g,'')}">×</button></div>`).join('');
+          items.map((q,i)=>`<div class="recent-search-row"><a role="option" href="listings.html?q=${encodeURIComponent(q)}">${marketEscapeHTML(q)}</a><button type="button" data-recent-remove="${i}" aria-label="Премахни ${marketEscapeHTML(q)}">×</button></div>`).join('');
         panel.hidden=false;
         input.setAttribute('aria-expanded','true');
       };
@@ -2858,6 +2878,25 @@
     },true);
 
     syncBanner();
+  })();
+
+
+  // v2.30: strip invisible control characters from user-editable text fields.
+  // HTML characters are NOT removed; output is encoded instead.
+  (function sanitizeTextControlsV230(){
+    const clean=value=>String(value||'').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g,'');
+    document.addEventListener('input',e=>{
+      const el=e.target;
+      if(!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement))return;
+      const type=(el.type||'text').toLowerCase();
+      if(!['text','search','email','tel','url',''].includes(type) && !(el instanceof HTMLTextAreaElement))return;
+      const next=clean(el.value);
+      if(next!==el.value){
+        const start=el.selectionStart,end=el.selectionEnd;
+        el.value=next;
+        try{el.setSelectionRange(start,end)}catch(err){}
+      }
+    },true);
   })();
 
 })();
