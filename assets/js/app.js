@@ -8,10 +8,23 @@
   }[ch]));
   const marketSafeLocalURL=(value,fallback='#')=>{
     try{
-      const u=new URL(String(value||''),location.href);
+      const raw=String(value||'').trim();
+      if(!raw)return fallback;
+      if(/^\s*(javascript:|data:|vbscript:|file:)/i.test(raw))return fallback;
+      if(raw.startsWith('//'))return fallback;
+
+      const u=new URL(raw,location.href);
       if(u.origin!==location.origin)return fallback;
       if(!['http:','https:'].includes(u.protocol))return fallback;
-      return u.pathname.split('/').pop()?u.pathname.split('/').pop()+u.search+u.hash:fallback;
+
+      // Preserve safe relative paths such as assets/img/products/washer-blue.svg.
+      // The previous implementation kept only the last filename, which broke
+      // "Наскоро разглеждани" images on the homepage.
+      if(!/^[a-z][a-z0-9+.-]*:/i.test(raw) && !raw.startsWith('/')){
+        return raw;
+      }
+
+      return u.pathname+u.search+u.hash;
     }catch(e){return fallback}
   };
   window.Market.escapeHTML=marketEscapeHTML;
@@ -1539,13 +1552,21 @@
         (bodyKind==='category'?aliasCategory(routeParams.get('name')||''):'');
       const routeBrand=routeParams.get('brand') ||
         (bodyKind==='brand'?(routeParams.get('name')||''):'');
+      const stateAliases={
+        'new':'Ново',
+        'нови':'Ново'
+      };
+      const routeStateRaw=(routeParams.get('state')||'').trim();
+      const routeState=stateAliases[clean(routeStateRaw)]||routeStateRaw;
+      let routeWarranty=routeParams.get('warranty')==='1';
+
       applyRouteValue('category',routeCategory);
       applyRouteValue('brand',routeBrand);
       applyRouteValue('city',routeParams.get('city')||'');
-      applyRouteValue('state',routeParams.get('state')||'');
+      applyRouteValue('state',routeState);
       applyRouteValue('seller',routeParams.get('seller')||'');
       applyRouteValue('minPrice',routeParams.get('minPrice')||'');
-      applyRouteValue('maxPrice',routeParams.get('maxPrice')||'');
+      applyRouteValue('maxPrice',routeParams.get('maxPrice')||routeParams.get('max')||'');
       applyRouteValue('q',routeParams.get('q')||'');
 
       const baseScope={
@@ -1558,6 +1579,7 @@
         q:`Търсене: ${v}`,
         category:v,brand:v,state:v,city:v,
         seller:v==='private'?'Частно лице':v==='trader'?'Търговец':v,
+        warranty:'С гаранция',
         minPrice:`от ${v} €`,maxPrice:`до ${v} €`
       }[k]||v);
 
@@ -1572,6 +1594,7 @@
           (!value('state')||r.dataset.state===value('state')) &&
           (!value('city')||clean(r.dataset.city)===clean(value('city'))) &&
           (!value('seller')||r.dataset.sellerType===value('seller')) &&
+          (!routeWarranty||r.dataset.warranty==='1') &&
           (+r.dataset.price>=min) && (+r.dataset.price<=max);
       };
 
@@ -1621,6 +1644,7 @@
           const v=(c.value||'').trim();
           if(v)active.push([k,v]);
         });
+        if(routeWarranty)active.push(['warranty','1']);
         chips.innerHTML=active.map(([k,v])=>{
           const locked=!!baseScope[k];
           return `<span class="filter-chip${locked?' route-locked':''}">${marketEscapeHTML(labelFor(k,v))} ${locked?'':`<button type="button" data-remove-filter="${marketEscapeHTML(k)}" aria-label="Премахни">×</button>`}</span>`;
@@ -1655,7 +1679,8 @@
         const remove=e.target.closest('[data-remove-filter]');
         if(remove){
           const key=remove.dataset.removeFilter;
-          if(controls[key])controls[key].value=baseScope[key]||'';
+          if(key==='warranty')routeWarranty=false;
+          else if(controls[key])controls[key].value=baseScope[key]||'';
           lastChangedKey='';visibleLimit=5;apply();
         }
         if(e.target.closest('[data-clear-filters]')){
@@ -1663,12 +1688,14 @@
             if(!c)return;
             c.value=baseScope[k]||'';
           });
+          routeWarranty=false;
           lastChangedKey='';visibleLimit=5;apply();
         }
         if(e.target.closest('[data-remove-last-filter]')){
           const keys=[lastChangedKey,'q','maxPrice','minPrice','seller','city','state','brand','category'].filter(Boolean);
           const key=keys.find(k=>controls[k]&&(controls[k].value||'').trim()&&!baseScope[k]);
           if(key)controls[key].value='';
+          else if(routeWarranty)routeWarranty=false;
           lastChangedKey='';visibleLimit=5;apply();
         }
       });
