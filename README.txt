@@ -1,26 +1,22 @@
-TEHNIKA v2.31
+TEHNIKA v2.32
 
-- Оправено неправилното рязане на снимките в категориите.
-- Иконите вече стоят центрирани, с contain вместо crop.
-- Добавен е по-мек фон и вътрешен padding, за да не се лепят по ръбовете.
-- Cache-bust до v2.31.
+REALISTIC CATEGORY IMAGES
+- All 8 homepage category pictures replaced with realistic appliance renders.
+- Whole appliance visible; no cropped edges.
+- Same clean white studio look.
+- 640x640 optimized PNG files.
+- v2.31 CSS fit fix preserved.
 
-TEHNIKA v2.30
-
-FINAL FRONTEND CLEANUP
-- All logos are clickable.
-- Broken washer image reference fixed.
-- Missing admin favicon fixed.
-- Main logo optimized for web.
-- Dynamic user/localStorage content is escaped before HTML rendering.
-- Local URLs reused from browser storage are validated.
-- Invisible control characters are removed from editable text.
-- Raw alert dialogs replaced with in-app/admin feedback.
-- Admin error monitor uses safe DOM rendering.
-- target=_blank links use noopener/noreferrer.
-- Referrer policy added.
-- Mobile horizontal overflow guard added.
-- Static bundle scanned for obvious secrets/debug code/broken links/assets.
-- Service-worker cache bumped to v2.30.
-
-See SECURITY_v2.30.md for the audit summary.
+Changed vs v2.31:
+- index.html
+- sw.js
+- VERSION.txt
+- README.txt
+- assets/img/categories/washer.png
+- assets/img/categories/dryer.png
+- assets/img/categories/fridge.png
+- assets/img/categories/stove.png
+- assets/img/categories/freezer.png
+- assets/img/categories/dishwasher.png
+- assets/img/categories/oven.png
+- assets/img/categories/hob.png

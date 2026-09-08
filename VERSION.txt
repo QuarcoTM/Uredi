@@ -1,2 +1,2 @@
-tehnika v2.31
-Оправено рязане на снимките в категориите на началната страница
+tehnika v2.32
+Realistic category appliance images
