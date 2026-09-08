@@ -1,2 +1,2 @@
-tehnika v2.27
-Active / archived conversation tabs fixed
+tehnika v2.29
+Archived chat semantics + robust refresh/service-worker fix
