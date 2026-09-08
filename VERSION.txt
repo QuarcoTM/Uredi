@@ -1,2 +1,2 @@
-tehnika v2.39
-Price history and trend indicator consistency fix
+tehnika v2.40
+Removed fake public metrics, verification and presence statuses

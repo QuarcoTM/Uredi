@@ -1,10 +1,21 @@
-TEHNIKA v2.39
+TEHNIKA v2.40
 
-PRICE HISTORY FIX
-- The current visible price is now always the final row in price history.
-- All static demo histories were rebuilt to match each product's real displayed price.
-- Up/down arrows now reflect the LAST actual price move.
-- If future HTML/backend data forgets the current price, app.js appends it automatically.
-- If there is no price movement, the indicator is hidden.
-- The popup marks the final row as "Текуща цена".
-- The duplicate old price-history handlers were replaced with one implementation.
+REAL DATA ONLY
+
+Removed until real backend data exists:
+- fake "Потвърден търговец" and "Email потвърден" claims;
+- fake online / last-active / response-time statuses;
+- fake member-since dates and active-listing counts;
+- fake profile counts;
+- fake owner statistics: views, favorites, conversations and phone taps;
+- fake unread chat counters;
+- fake notification counters and fake notification events;
+- fake relative published-time / remaining-days counters in My Ads.
+
+Kept:
+- neutral seller type "Търговец" (not a verification claim);
+- structural demo listings/chats required to test the frontend;
+- real local user actions such as favorites/follow/block.
+
+When Supabase is connected, verification, presence, unread counts, stats and
+notifications return only when backed by real data.
