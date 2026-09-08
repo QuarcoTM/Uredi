@@ -745,30 +745,166 @@
     });
   })();
 
-  // v2.5 price history popup for green/down or red/up indicator.
-  (function(){
+
+
+  // v2.39 price history: current price is always the final history row.
+  (function priceHistoryV239(){
     let pop=null;
+
+    const parseValue=text=>{
+      const n=parseFloat(String(text||'').replace(/[^\d.,]/g,'').replace(',','.'));
+      return Number.isFinite(n)?n:0;
+    };
+
+    const priceTextFor=btn=>{
+      const wrap=btn.closest('[data-price-with-trend],.price-with-trend');
+      return (
+        wrap?.querySelector('.detail-price,.price')?.textContent?.trim() ||
+        btn.dataset.currentPrice ||
+        ''
+      );
+    };
+
+    const todayBG=()=>{
+      const d=new Date();
+      return new Intl.DateTimeFormat('bg-BG',{
+        day:'2-digit',month:'2-digit',year:'numeric'
+      }).format(d);
+    };
+
+    const getHistory=btn=>{
+      const parsed=(btn.dataset.priceHistory||'')
+        .split(';')
+        .filter(Boolean)
+        .map(x=>{
+          const [price,date]=x.split('|');
+          return {
+            price:(price||'').trim(),
+            date:(date||'').trim(),
+            value:parseValue(price)
+          };
+        })
+        .filter(x=>x.price && x.value>0);
+
+      const currentPrice=priceTextFor(btn);
+      const currentValue=parseValue(currentPrice);
+
+      if(currentValue>0){
+        const last=parsed[parsed.length-1];
+
+        // This is the important guard: if HTML/backend history forgot the
+        // current price, append it automatically instead of showing stale data.
+        if(!last || Math.abs(last.value-currentValue)>0.001){
+          parsed.push({
+            price:currentPrice,
+            date:btn.dataset.currentPriceDate||todayBG(),
+            value:currentValue,
+            current:true
+          });
+        }else{
+          last.current=true;
+          if(btn.dataset.currentPriceDate)last.date=btn.dataset.currentPriceDate;
+        }
+      }
+
+      return parsed;
+    };
+
+    const syncIndicator=btn=>{
+      const rows=getHistory(btn);
+      if(rows.length<2){
+        btn.hidden=true;
+        return;
+      }
+
+      const prev=rows[rows.length-2].value;
+      const current=rows[rows.length-1].value;
+
+      btn.classList.remove('price-trend-down','price-trend-up');
+
+      if(current<prev){
+        btn.hidden=false;
+        btn.classList.add('price-trend-down');
+        btn.dataset.priceTrend='down';
+        btn.setAttribute('aria-label','Цената е намалена. Виж историята на цената.');
+        btn.title='Цената е намалена · История на цената';
+      }else if(current>prev){
+        btn.hidden=false;
+        btn.classList.add('price-trend-up');
+        btn.dataset.priceTrend='up';
+        btn.setAttribute('aria-label','Цената е повишена. Виж историята на цената.');
+        btn.title='Цената е повишена · История на цената';
+      }else{
+        // Locked product rule: no movement = no indicator.
+        btn.hidden=true;
+      }
+    };
+
     const ensure=()=>{
       if(pop)return pop;
-      pop=document.createElement('div');pop.className='price-history-popover';
-      pop.innerHTML='<div class="price-history-popover-card"><div class="price-history-popover-head"><h3>История на цената</h3><button type="button" aria-label="Затвори">×</button></div><div class="price-history-popover-list"></div></div>';
+      pop=document.createElement('div');
+      pop.className='price-history-popover';
+      pop.innerHTML=
+        '<div class="price-history-popover-card" role="dialog" aria-modal="true" aria-labelledby="price-history-title-v239">'+
+          '<div class="price-history-popover-head">'+
+            '<h3 id="price-history-title-v239">История на цената</h3>'+
+            '<button type="button" aria-label="Затвори">×</button>'+
+          '</div>'+
+          '<div class="price-history-popover-list"></div>'+
+        '</div>';
       document.body.appendChild(pop);
       pop.querySelector('button').addEventListener('click',()=>pop.classList.remove('open'));
-      pop.addEventListener('click',e=>{if(e.target===pop)pop.classList.remove('open')});
+      pop.addEventListener('click',e=>{
+        if(e.target===pop)pop.classList.remove('open');
+      });
       return pop;
     };
-    document.addEventListener('click',e=>{
-      const btn=e.target.closest('[data-price-history]');
-      if(!btn)return;
-      e.preventDefault();e.stopPropagation();
+
+    const render=btn=>{
+      const rows=getHistory(btn);
       const p=ensure();
       const list=p.querySelector('.price-history-popover-list');
-      const rows=(btn.dataset.priceHistory||'').split(';').filter(Boolean).map(x=>{
-        const [price,date]=x.split('|');
-        return `<div><span>${marketEscapeHTML(date||'')}</span><strong>${marketEscapeHTML(price||'')}</strong></div>`;
-      }).join('');
-      list.innerHTML=rows||'<div><span>Няма предишни промени.</span><strong>—</strong></div>';
+
+      list.innerHTML=rows.map((row,i)=>{
+        let cls='same',symbol='•';
+        if(i>0){
+          const prev=rows[i-1].value;
+          if(row.value<prev){cls='down';symbol='↓'}
+          else if(row.value>prev){cls='up';symbol='↑'}
+        }
+
+        const current=row.current || i===rows.length-1;
+        const currentLabel=current
+          ? '<small class="price-history-current">Текуща цена</small>'
+          : '';
+
+        return (
+          `<div class="${current?'is-current':''}">`+
+            `<span>${marketEscapeHTML(row.date)}${currentLabel}</span>`+
+            `<strong>${marketEscapeHTML(row.price)}</strong>`+
+            `<em class="price-history-change ${cls}" aria-hidden="true">${symbol}</em>`+
+          `</div>`
+        );
+      }).join('') ||
+      '<div><span>Няма предишни промени.</span><strong>—</strong><em class="price-history-change same">•</em></div>';
+
       p.classList.add('open');
+    };
+
+    document.querySelectorAll('[data-price-history]').forEach(syncIndicator);
+
+    document.addEventListener('click',e=>{
+      const btn=e.target.closest('[data-price-history]');
+      if(!btn || btn.hidden)return;
+      e.preventDefault();
+      e.stopPropagation();
+      render(btn);
+    },true);
+
+    document.addEventListener('keydown',e=>{
+      if(e.key==='Escape' && pop?.classList.contains('open')){
+        pop.classList.remove('open');
+      }
     });
   })();
 
@@ -811,49 +947,6 @@
     }
   })();
 
-  // v2.6 tiny price indicator opens the full dated history only on tap.
-  (function(){
-    let pop=document.querySelector('.price-history-popover');
-
-    const ensure=()=>{
-      if(pop)return pop;
-      pop=document.createElement('div');
-      pop.className='price-history-popover';
-      pop.innerHTML='<div class="price-history-popover-card"><div class="price-history-popover-head"><h3>История на цената</h3><button type="button" aria-label="Затвори">×</button></div><div class="price-history-popover-list"></div></div>';
-      document.body.appendChild(pop);
-      pop.querySelector('button').addEventListener('click',()=>pop.classList.remove('open'));
-      pop.addEventListener('click',e=>{if(e.target===pop)pop.classList.remove('open')});
-      return pop;
-    };
-
-    // Capture phase prevents the older v2.5 popup handler from also firing.
-    document.addEventListener('click',e=>{
-      const btn=e.target.closest('[data-price-history]');
-      if(!btn)return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-
-      const p=ensure();
-      const list=p.querySelector('.price-history-popover-list');
-      const parsed=(btn.dataset.priceHistory||'').split(';').filter(Boolean).map(x=>{
-        const [price,date]=x.split('|');
-        const value=parseFloat((price||'').replace(/[^\d.,]/g,'').replace(',','.'))||0;
-        return {price:price||'',date:date||'',value};
-      });
-
-      list.innerHTML=parsed.map((row,i)=>{
-        let cls='same',symbol='•';
-        if(i>0){
-          const prev=parsed[i-1].value;
-          if(row.value<prev){cls='down';symbol='↓'}
-          else if(row.value>prev){cls='up';symbol='↑'}
-        }
-        return `<div><span>${marketEscapeHTML(row.date)}</span><strong>${marketEscapeHTML(row.price)}</strong><em class="price-history-change ${cls}">${symbol}</em></div>`;
-      }).join('') || '<div><span>Няма предишни промени.</span><strong>—</strong><em class="price-history-change same">•</em></div>';
-
-      p.classList.add('open');
-    },true);
-  })();
 
   // v2.25 category / brand landing pages with real scoped filtering.
   (function landingRoutingV225(){
@@ -926,7 +1019,7 @@
       if(subtitle)subtitle.textContent=`Разгледай актуалните обяви за ${name||'избраната марка'} по категории.`;
       if(breadcrumb)breadcrumb.textContent=name||'Марка';
       if(label)label.textContent='Категории:';
-      if(links)links.innerHTML=categories.slice(0,8).map(c=>
+      if(links)links.innerHTML=categories.map(c=>
         `<a href="category.html?name=${encodeURIComponent(c)}&brand=${encodeURIComponent(name)}">${c}</a>`
       ).join('');
 
@@ -1619,7 +1712,10 @@
         (bodyKind==='brand'?(routeParams.get('name')||''):'');
       const stateAliases={
         'new':'Ново',
-        'нови':'Ново'
+        'нови':'Ново',
+        'разопаковано':'Разопаковано/мострено',
+        'разопаковано / мострено':'Разопаковано/мострено',
+        'за ремонт / части':'За ремонт/части'
       };
       const routeStateRaw=(routeParams.get('state')||'').trim();
       const routeState=stateAliases[clean(routeStateRaw)]||routeStateRaw;
@@ -3077,6 +3173,73 @@
         });
       }
     },true);
+  })();
+
+
+  // v2.38 QA fixes: contact, safety report and edit-ad actions.
+  (function qaFormActionsV238(){
+    const toast=message=>window.marketToast?.(message);
+
+    const contact=document.querySelector('[data-contact-submit]');
+    contact?.addEventListener('click',()=>{
+      const name=document.querySelector('[data-contact-name]');
+      const email=document.querySelector('[data-contact-email]');
+      const message=document.querySelector('[data-contact-message]');
+      const status=document.querySelector('[data-contact-status]');
+      if(!name?.value.trim() || !email?.value.trim() || !message?.value.trim()){
+        toast('Попълни име, имейл и съобщение.');
+        return;
+      }
+      if(status){
+        status.hidden=false;
+        status.textContent='Формата е валидирана. Реалното изпращане ще се активира при свързването на backend-а.';
+        status.scrollIntoView({behavior:'smooth',block:'nearest'});
+      }
+    });
+
+    const safety=document.querySelector('[data-safety-submit]');
+    safety?.addEventListener('click',()=>{
+      const description=document.querySelector('[data-safety-description]');
+      const status=document.querySelector('[data-safety-status]');
+      if(!description?.value.trim()){
+        toast('Добави кратко описание на сигнала.');
+        return;
+      }
+      if(status){
+        status.hidden=false;
+        status.textContent='Сигналът е валидиран в тестовата версия. Реалното изпращане ще се активира при свързването на backend-а.';
+        status.scrollIntoView({behavior:'smooth',block:'nearest'});
+      }
+    });
+
+    const editSave=document.querySelector('[data-edit-save]');
+    editSave?.addEventListener('click',()=>{
+      const fields=[...document.querySelectorAll('main .field')];
+      const category=document.querySelector('[data-category-control]')?.value||'';
+      const brand=document.querySelector('[data-ad-brand]')?.value||'';
+      const custom=document.querySelector('[data-other-brand-input]')?.value.trim()||'';
+      const inputs=[...document.querySelectorAll('main .field input,main .field select,main .field textarea')];
+      const payload={
+        category,
+        brand:brand==='Друга'?custom:brand,
+        values:inputs.map(el=>({
+          id:el.id||'',
+          value:el.type==='checkbox'?el.checked:el.value
+        })),
+        savedAt:Date.now()
+      };
+      if(brand==='Друга'&&!custom){
+        toast('Напиши каква е марката.');
+        return;
+      }
+      localStorage.setItem('marketDemoEditedAdV238',JSON.stringify(payload));
+      const status=document.querySelector('[data-edit-status]');
+      if(status){
+        status.hidden=false;
+        status.textContent='Промените са запазени локално в тестовата версия.';
+      }
+      toast('Промените са запазени.');
+    });
   })();
 
 })();
