@@ -3986,3 +3986,255 @@ input::placeholder,textarea::placeholder{color:#657086;opacity:1}
     min-width:44px;min-height:44px
   }
 }
+
+
+/* ===== v2.25 category routing ===== */
+.filter-chip.route-locked{
+  padding-right:10px;
+}
+.filter-panel select[data-route-locked="1"]{
+  background-color:#f4f7fa;
+  color:#506176;
+  cursor:not-allowed;
+}
+
+
+/* ===== v2.26 seller profile mobile layout fix ===== */
+
+.seller-profile-info{
+  min-width:0;
+  display:grid;
+  gap:7px;
+}
+.seller-profile-title-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+.seller-profile-name{
+  margin:0!important;
+  min-width:0;
+  font-size:24px!important;
+  line-height:1.15;
+}
+.seller-profile-badges{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.seller-profile-badges .trust-email{
+  margin-left:0!important;
+}
+.seller-profile-meta,
+.seller-profile-status{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  flex-wrap:wrap;
+  color:#657086;
+  font-size:12px;
+  line-height:1.4;
+}
+.seller-profile-status{
+  color:#33465b;
+}
+.seller-online-status{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  color:#26754f;
+  font-weight:800;
+}
+.seller-online-status .online-dot{
+  position:static!important;
+  display:inline-block!important;
+  width:8px!important;
+  height:8px!important;
+  min-width:8px!important;
+  min-height:8px!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:50%!important;
+  background:#37a86c!important;
+  box-shadow:none!important;
+}
+.seller-meta-separator{
+  color:#9aa4b1;
+}
+
+.seller-primary-actions{
+  flex:0 0 auto;
+}
+.seller-primary-actions .seller-contact-action{
+  white-space:nowrap;
+}
+
+.seller-secondary-actions{
+  width:100%;
+}
+.seller-follow-action{
+  min-width:160px;
+}
+.seller-text-action{
+  min-height:38px;
+  padding:0 10px;
+  border:0;
+  background:transparent;
+  color:#53667a;
+  font-size:11px;
+  font-weight:750;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.seller-text-action:hover{
+  color:#1f5e9d;
+  background:#f6f8fa;
+  border-radius:8px;
+}
+
+@media(max-width:760px){
+  .profile-cover{
+    grid-template-columns:58px minmax(0,1fr)!important;
+    gap:12px!important;
+    padding:14px!important;
+  }
+
+  .seller-profile-info{
+    grid-column:2;
+    min-width:0;
+    gap:6px;
+  }
+
+  .seller-profile-title-row{
+    align-items:flex-start;
+  }
+
+  .seller-profile-name{
+    font-size:20px!important;
+    line-height:1.12!important;
+    overflow-wrap:normal!important;
+    word-break:normal!important;
+  }
+
+  .seller-profile-title-row .verified-info-btn{
+    flex:0 0 28px;
+    margin-top:1px;
+  }
+
+  .seller-profile-badges{
+    gap:5px;
+  }
+
+  .seller-profile-badges .badge{
+    margin-top:0!important;
+    height:22px;
+    padding:0 7px;
+    font-size:8.5px;
+    letter-spacing:.02em;
+  }
+
+  .seller-profile-meta,
+  .seller-profile-status{
+    font-size:10.5px;
+    line-height:1.35;
+    gap:4px;
+  }
+
+  .seller-profile-status{
+    display:flex;
+    align-items:center;
+  }
+
+  .seller-primary-actions{
+    grid-column:1/-1!important;
+    width:100%!important;
+    display:grid!important;
+    grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr)!important;
+    gap:8px!important;
+    margin:2px 0 0!important;
+  }
+
+  .seller-primary-actions .seller-contact-action{
+    width:100%!important;
+    min-width:0!important;
+    height:46px!important;
+    padding:0 10px!important;
+    font-size:11.5px!important;
+    line-height:1.15!important;
+    white-space:normal!important;
+    text-align:center!important;
+  }
+
+  .seller-primary-actions .seller-contact-action .ico{
+    flex:0 0 18px;
+    width:18px;
+    height:18px;
+  }
+
+  .seller-secondary-actions{
+    grid-column:1/-1!important;
+    width:100%!important;
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:6px!important;
+    margin-top:2px!important;
+  }
+
+  .seller-secondary-actions .seller-follow-action{
+    grid-column:1/-1;
+    width:100%!important;
+    height:42px!important;
+    min-width:0!important;
+    margin:0!important;
+    font-size:11px!important;
+  }
+
+  .seller-secondary-actions .seller-text-action{
+    width:100%;
+    min-height:38px;
+    font-size:10.5px;
+    border:1px solid #dce3ea;
+    border-radius:8px;
+    background:#fff;
+  }
+
+  /* Retired duplicate status block; guard against stale cached markup. */
+  .seller-presence-profile{
+    display:none!important;
+  }
+}
+
+
+/* ===== v2.27 archived conversations fix ===== */
+
+/* The generic .conversation {display:flex} rule used to override the
+   HTML hidden attribute. Hidden chat rows must always stay hidden. */
+.conversation[hidden],
+.conversation-list [data-conversation-state][hidden],
+.conversation-empty[hidden]{
+  display:none!important;
+}
+
+.conversation-empty{
+  padding:34px 18px;
+  text-align:center;
+  color:#657086;
+}
+.conversation-empty strong{
+  display:block;
+  margin-bottom:5px;
+  color:#2e4055;
+  font-size:12px;
+}
+.conversation-empty span{
+  display:block;
+  font-size:10px;
+  line-height:1.45;
+}
+
+.conversation-tab{
+  cursor:pointer;
+}
