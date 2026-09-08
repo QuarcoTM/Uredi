@@ -384,23 +384,88 @@
   }));
 
 
-  // v2.3 recently viewed
+  // v2.36 recently viewed: repair old stored image paths from v2.30-v2.32.
   (function(){
     const file=(location.pathname.split('/').pop()||'index.html').toLowerCase(),key='marketRecentViewedV23';
-    const get=()=>{try{return JSON.parse(localStorage.getItem(key)||'[]')}catch(e){return[]}};
+    const fallbackImage='assets/img/products/washer-blue.svg';
+
+    const normalizeImage=value=>{
+      const raw=String(value||'').trim();
+      if(!raw)return fallbackImage;
+
+      // Older builds accidentally stored only "washer-blue.svg" instead of
+      // "assets/img/products/washer-blue.svg". Repair that data automatically.
+      if(/^[A-Za-z0-9._-]+\.(?:svg|png|jpe?g|webp)$/i.test(raw)){
+        return 'assets/img/products/'+raw;
+      }
+      if(/^products\//i.test(raw)){
+        return 'assets/img/'+raw;
+      }
+
+      return marketSafeLocalURL(raw,fallbackImage);
+    };
+
+    const get=()=>{
+      try{
+        const parsed=JSON.parse(localStorage.getItem(key)||'[]');
+        if(!Array.isArray(parsed))return[];
+
+        let changed=false;
+        const repaired=parsed.map(item=>{
+          const fixed={...item};
+          const image=normalizeImage(fixed.image);
+          if(image!==fixed.image){
+            fixed.image=image;
+            changed=true;
+          }
+          return fixed;
+        });
+
+        if(changed)localStorage.setItem(key,JSON.stringify(repaired));
+        return repaired;
+      }catch(e){
+        return[];
+      }
+    };
+
     if(file==='listing.html'){
-      const item={id:'bosch-serie-6',title:document.querySelector('.detail-card h1')?.textContent?.trim()||'Bosch Serie 6',price:document.querySelector('.detail-price')?.textContent?.trim()||'329 €',image:document.querySelector('.gallery-main img')?.getAttribute('src')||'assets/img/products/washer-blue.svg',meta:'9 kg · 1400 rpm · A',location:'София',href:'listing.html',viewedAt:Date.now()};
-      const arr=get().filter(x=>x.id!==item.id);arr.unshift(item);localStorage.setItem(key,JSON.stringify(arr.slice(0,8)));
+      const item={
+        id:'bosch-serie-6',
+        title:document.querySelector('.detail-card h1')?.textContent?.trim()||'Bosch Serie 6',
+        price:document.querySelector('.detail-price')?.textContent?.trim()||'329 €',
+        image:normalizeImage(document.querySelector('.gallery-main img')?.getAttribute('src')||fallbackImage),
+        meta:'9 kg · 1400 rpm · A',
+        location:'София',
+        href:'listing.html',
+        viewedAt:Date.now()
+      };
+      const arr=get().filter(x=>x.id!==item.id);
+      arr.unshift(item);
+      localStorage.setItem(key,JSON.stringify(arr.slice(0,8)));
     }
+
     if(file==='index.html'){
-      const sec=document.querySelector('[data-recent-section]'),grid=document.querySelector('[data-recent-grid]'),items=get();
+      const sec=document.querySelector('[data-recent-section]');
+      const grid=document.querySelector('[data-recent-grid]');
+      const items=get();
+
       if(sec&&grid&&items.length){
         sec.style.display='';
         grid.innerHTML=items.slice(0,4).map(x=>{
           const href=marketSafeLocalURL(x.href,'listings.html');
-          const image=marketSafeLocalURL(x.image,'assets/img/products/washer-blue.svg');
+          const image=normalizeImage(x.image);
           return `<article class="product-card"><a href="${marketEscapeHTML(href)}"><img class="product-img" src="${marketEscapeHTML(image)}" alt="${marketEscapeHTML(x.title)}"></a><div class="card-body"><a href="${marketEscapeHTML(href)}"><h3 class="product-title">${marketEscapeHTML(x.title)}</h3><div class="product-specs">${marketEscapeHTML(x.meta)}</div></a><div class="product-meta"><div class="price">${marketEscapeHTML(x.price)}</div><span class="location">${marketEscapeHTML(x.location)}</span></div></div></article>`;
         }).join('');
+
+        // Last-resort fallback if a stale/removed product asset is still stored.
+        grid.querySelectorAll('img.product-img').forEach(img=>{
+          img.addEventListener('error',()=>{
+            if(!img.dataset.recentFallback){
+              img.dataset.recentFallback='1';
+              img.src=fallbackImage;
+            }
+          },{once:true});
+        });
       }
     }
   })();
@@ -2922,6 +2987,94 @@
         const start=el.selectionStart,end=el.selectionEnd;
         el.value=next;
         try{el.setSelectionRange(start,end)}catch(err){}
+      }
+    },true);
+  })();
+
+
+  // v2.35 iOS Safari: do not restore/open the header search after refresh.
+  // Search suggestions/recent searches may open only after an intentional
+  // pointer/touch/keyboard interaction with the search field.
+  (function preventAccidentalSearchFocusV235(){
+    const searchInputs=()=>[...document.querySelectorAll('.header-search input,.mobile-header-search input')];
+    let intentionalUntil=0;
+
+    const markIntentional=e=>{
+      const input=e.target.closest?.('.header-search input,.mobile-header-search input');
+      if(!input)return;
+      intentionalUntil=Date.now()+1200;
+    };
+
+    document.addEventListener('pointerdown',markIntentional,true);
+    document.addEventListener('touchstart',markIntentional,{capture:true,passive:true});
+    document.addEventListener('keydown',e=>{
+      if(e.target.matches?.('.header-search input,.mobile-header-search input')){
+        intentionalUntil=Date.now()+1200;
+      }
+    },true);
+
+    const closeSearchPanels=input=>{
+      const form=input?.closest?.('.header-search,.mobile-header-search');
+      form?.querySelectorAll('.search-suggest,.recent-searches-panel').forEach(panel=>{
+        panel.classList?.remove('open');
+        panel.hidden=true;
+      });
+      input?.setAttribute('aria-expanded','false');
+    };
+
+    const neutralizeRestoredFocus=()=>{
+      const active=document.activeElement;
+      if(
+        active instanceof HTMLInputElement &&
+        active.matches('.header-search input,.mobile-header-search input') &&
+        Date.now()>intentionalUntil
+      ){
+        active.blur();
+        closeSearchPanels(active);
+      }
+    };
+
+    // Safari can restore form focus during reload/pageshow, even when the user
+    // only tapped the browser Refresh button while the page was still moving.
+    const nav=performance.getEntriesByType?.('navigation')?.[0];
+    const restoredNavigation=nav && (nav.type==='reload'||nav.type==='back_forward');
+
+    if(restoredNavigation){
+      requestAnimationFrame(neutralizeRestoredFocus);
+      setTimeout(neutralizeRestoredFocus,0);
+      setTimeout(neutralizeRestoredFocus,80);
+      setTimeout(neutralizeRestoredFocus,250);
+    }
+
+    window.addEventListener('pageshow',e=>{
+      if(e.persisted || restoredNavigation){
+        intentionalUntil=0;
+        requestAnimationFrame(neutralizeRestoredFocus);
+        setTimeout(neutralizeRestoredFocus,80);
+      }
+    });
+
+    // Do not let iOS save the search field as the focused element for reload.
+    const blurHeaderSearch=()=>{
+      searchInputs().forEach(input=>{
+        if(document.activeElement===input)input.blur();
+        closeSearchPanels(input);
+      });
+    };
+    window.addEventListener('pagehide',blurHeaderSearch);
+    window.addEventListener('beforeunload',blurHeaderSearch);
+
+    // Final guard: an unintentional focus event after reload is rejected.
+    document.addEventListener('focusin',e=>{
+      const input=e.target.closest?.('.header-search input,.mobile-header-search input');
+      if(!input || Date.now()<=intentionalUntil)return;
+      if(restoredNavigation){
+        requestAnimationFrame(()=>{
+          if(document.activeElement===input){
+            input.blur();
+            closeSearchPanels(input);
+          }
+        });
       }
     },true);
   })();
