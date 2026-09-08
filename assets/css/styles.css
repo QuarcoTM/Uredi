@@ -4361,3 +4361,18 @@ pre,code{
 .price-history-change.down{color:#16834f}
 .price-history-change.up{color:#b43a35}
 .price-history-change.same{color:#8792a1}
+
+
+/* ===== v2.40 real-data-only cleanup ===== */
+.badge-seller-type{
+  background:#eef2f6;
+  color:#4c5d70;
+  border:1px solid #d9e0e8;
+}
+.seller-type-inline{
+  display:inline-flex;
+  align-items:center;
+  color:#657086;
+  font-size:12px;
+}
+.notifications-empty-state{margin:10px 0}
