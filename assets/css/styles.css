@@ -4238,3 +4238,29 @@ input::placeholder,textarea::placeholder{color:#657086;opacity:1}
 .conversation-tab{
   cursor:pointer;
 }
+
+
+/* ===== v2.28 hard category scope ===== */
+body[data-landing-kind="category"] .listing-row[data-category-scope-hidden="1"]{
+  display:none!important;
+}
+
+
+/* ===== v2.29 archived chat semantics ===== */
+.archived-chat-banner[hidden]{display:none!important}
+.archived-chat-banner{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  padding:8px 12px;
+  border-bottom:1px solid #dfe6ed;
+  background:#f6f8fa;
+  color:#52657a;
+  font-size:9.5px;
+  line-height:1.35;
+}
+.archived-chat-banner strong{
+  color:#31465b;
+  font-size:10px;
+}
