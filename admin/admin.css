@@ -344,3 +344,28 @@ input:disabled{background:#f1f3f6;color:#7c8594}
   outline:3px solid rgba(11,94,232,.28)!important;
   outline-offset:2px!important
 }
+
+
+/* ===== v2.30 admin cleanup ===== */
+.logo-link{display:inline-flex;align-items:center;justify-content:center;line-height:0}
+.logo-link img{display:block}
+html,body{max-width:100%;overflow-x:clip}
+.admin-toast-host{
+  position:fixed;
+  right:14px;
+  bottom:14px;
+  z-index:9999;
+  display:grid;
+  gap:7px;
+  width:min(340px,calc(100vw - 28px));
+}
+.admin-toast{
+  padding:10px 12px;
+  border:1px solid #dce4ec;
+  border-radius:9px;
+  background:#1f3348;
+  color:#fff;
+  box-shadow:0 8px 24px rgba(0,0,0,.18);
+  font-size:12px;
+  font-weight:700;
+}

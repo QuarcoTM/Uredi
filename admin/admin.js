@@ -1,8 +1,24 @@
+
+function adminToastV230(message){
+  let host=document.querySelector('.admin-toast-host');
+  if(!host){
+    host=document.createElement('div');
+    host.className='admin-toast-host';
+    host.setAttribute('aria-live','polite');
+    document.body.appendChild(host);
+  }
+  const toast=document.createElement('div');
+  toast.className='admin-toast';
+  toast.textContent=String(message||'Готово.');
+  host.appendChild(toast);
+  setTimeout(()=>toast.remove(),2600);
+}
+
 // Admin demo actions
 document.querySelectorAll('[data-demo-action]').forEach(b=>b.addEventListener('click',()=>{
   const row=b.closest('tr');
   if(row){row.style.opacity='.45';setTimeout(()=>row.style.opacity='1',400)}
-  alert('Демо действие: '+b.dataset.demoAction)
+  adminToastV230('Демо действие: '+b.dataset.demoAction)
 }));
 
 document.querySelectorAll('[data-save]').forEach(b=>b.addEventListener('click',()=>{
@@ -71,7 +87,7 @@ document.querySelectorAll('table').forEach(table=>{
   t.checked=false;
   t.addEventListener('change',()=>{
     t.checked=false;
-    alert('Платените услуги остават изключени в FREE BETA. Ще ги активираме след готовност за монетизация.');
+    adminToastV230('Платените услуги остават изключени в FREE BETA.');
   });
 })();
 
@@ -134,11 +150,24 @@ document.querySelectorAll('table').forEach(table=>{
     const arr=read();
     if(count)count.textContent=String(arr.length);
     if(list){
-      list.innerHTML=arr.length?arr.slice(0,20).map(x=>`
-        <div class="health-error-row">
-          <code>${String(x.message||'Грешка').replace(/[<>&"]/g,'')}</code>
-          <small>${String(x.page||'')} · ${String(x.time||'')}</small>
-        </div>`).join(''):'<div class="empty-admin-state">Няма записани JavaScript грешки.</div>';
+      list.replaceChildren();
+      if(!arr.length){
+        const empty=document.createElement('div');
+        empty.className='empty-admin-state';
+        empty.textContent='Няма записани JavaScript грешки.';
+        list.appendChild(empty);
+      }else{
+        arr.slice(0,20).forEach(x=>{
+          const row=document.createElement('div');
+          row.className='health-error-row';
+          const code=document.createElement('code');
+          code.textContent=String(x.message||'Грешка');
+          const meta=document.createElement('small');
+          meta.textContent=String(x.page||'')+' · '+String(x.time||'');
+          row.append(code,meta);
+          list.appendChild(row);
+        });
+      }
     }
   };
   document.querySelector('[data-health-clear-errors]')?.addEventListener('click',()=>{
