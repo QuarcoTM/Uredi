@@ -4331,3 +4331,33 @@ pre,code{
     padding:5px!important;
   }
 }
+
+
+/* ===== v2.39 price history consistency ===== */
+.price-history-popover-list>div{
+  grid-template-columns:1fr auto 18px;
+  align-items:center;
+}
+.price-history-popover-list>div.is-current{
+  background:#f7fafc;
+  margin:0 -8px;
+  padding-left:8px;
+  padding-right:8px;
+  border-radius:7px;
+}
+.price-history-current{
+  display:block;
+  margin-top:2px;
+  color:#657086;
+  font-size:8.5px;
+  font-weight:750;
+}
+.price-history-change{
+  justify-self:end;
+  font-style:normal;
+  font-weight:900;
+  font-size:12px;
+}
+.price-history-change.down{color:#16834f}
+.price-history-change.up{color:#b43a35}
+.price-history-change.same{color:#8792a1}
