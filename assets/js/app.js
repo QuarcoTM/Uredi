@@ -1055,36 +1055,6 @@
   });
 
 
-  // v2.9 phone-tap statistics. Counts button taps, not completed calls.
-  (function phoneTapStats(){
-    const keyPrefix='marketPhoneTaps:';
-    document.querySelectorAll('[data-phone-track]').forEach(link=>{
-      link.addEventListener('click',()=>{
-        const id=link.dataset.phoneTrack||document.body.dataset.listingId||'listing';
-        const key=keyPrefix+id;
-        const now=(parseInt(localStorage.getItem(key)||'0',10)||0)+1;
-        localStorage.setItem(key,String(now));
-      });
-    });
-
-    document.querySelectorAll('[data-phone-stat]').forEach(el=>{
-      const id=el.dataset.phoneStat;
-      const base=parseInt(el.dataset.base||'0',10)||0;
-      const extra=parseInt(localStorage.getItem(keyPrefix+id)||'0',10)||0;
-      el.textContent=String(base+extra);
-    });
-
-    const total=document.querySelector('[data-total-phone-stat]');
-    if(total){
-      const base=parseInt(total.dataset.base||'0',10)||0;
-      let extra=0;
-      for(let i=0;i<localStorage.length;i++){
-        const k=localStorage.key(i);
-        if(k&&k.startsWith(keyPrefix)) extra+=parseInt(localStorage.getItem(k)||'0',10)||0;
-      }
-      total.textContent=String(base+extra);
-    }
-  })();
 
   // v2.9 robust photo preparation:
   // exact SHA-256 duplicate detection, client-side optimization, progress,
@@ -2124,9 +2094,8 @@
     if(badge){
       let unread=parseInt(localStorage.getItem('marketUnreadNotifications')||'',10);
       if(Number.isNaN(unread)){
-        // Static prototype currently contains four unread notifications.
-        unread=4;
-        localStorage.setItem('marketUnreadNotifications',String(unread));
+        unread=0;
+        localStorage.setItem('marketUnreadNotifications','0');
       }
       if(unread>0){
         badge.textContent=unread>9?'9+':String(unread);
@@ -2177,8 +2146,8 @@
     // ----- Unread Chat badge.
     let unreadChat=parseInt(localStorage.getItem('marketUnreadChatCount')||'',10);
     if(Number.isNaN(unreadChat)){
-      unreadChat=3;
-      localStorage.setItem('marketUnreadChatCount',String(unreadChat));
+      unreadChat=0;
+      localStorage.setItem('marketUnreadChatCount','0');
     }
     $$('[data-chat-badge]').forEach(b=>{
       if(unreadChat>0){
@@ -2204,8 +2173,7 @@
     const noticeList=$('.notice-list');
     if(noticeList){
       const notices=$$('.notice',noticeList);
-      let unread=parseInt(localStorage.getItem('marketUnreadNotifications')||'',10);
-      if(Number.isNaN(unread))unread=notices.filter(n=>n.classList.contains('unread')).length;
+      let unread=notices.filter(n=>n.classList.contains('unread')).length;
       localStorage.setItem('marketUnreadNotifications',String(unread));
 
       const syncBell=()=>{
@@ -2300,39 +2268,6 @@
       });
       document.addEventListener('click',e=>{if(!form.contains(e.target))close()});
       input.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
-    });
-
-    // ----- Verified trader explanation dialog.
-    let verifiedDialog=null, verifiedReturnFocus=null;
-    const closeVerified=()=>{
-      if(!verifiedDialog)return;
-      verifiedDialog.remove();verifiedDialog=null;
-      verifiedReturnFocus?.focus?.();verifiedReturnFocus=null;
-    };
-    document.addEventListener('click',e=>{
-      const btn=e.target.closest('[data-verified-info]');
-      if(!btn)return;
-      verifiedReturnFocus=btn;
-      verifiedDialog=document.createElement('div');
-      verifiedDialog.className='verified-info-dialog';
-      verifiedDialog.setAttribute('role','dialog');
-      verifiedDialog.setAttribute('aria-modal','true');
-      verifiedDialog.setAttribute('aria-labelledby','verifiedInfoTitle');
-      verifiedDialog.innerHTML=`<div class="verified-info-card">
-        <h3 id="verifiedInfoTitle">Потвърден търговец</h3>
-        <p>Този статус показва, че платформата е получила и проверила основните данни, с които продавачът се представя като професионален търговец.</p>
-        <ul>
-          <li>Статусът помага за прозрачност между частни и професионални продавачи.</li>
-          <li>Не е гаранция за конкретна сделка, състоянието на уреда или изпълнението на обещание.</li>
-          <li>Проверявай обявата и използвай системата за сигнал при проблем.</li>
-        </ul>
-        <button type="button" class="secondary-btn" data-close-verified>Разбрах</button>
-      </div>`;
-      document.body.appendChild(verifiedDialog);
-      verifiedDialog.querySelector('[data-close-verified]').focus();
-    });
-    document.addEventListener('click',e=>{
-      if(e.target.closest('[data-close-verified]') || (verifiedDialog&&e.target===verifiedDialog))closeVerified();
     });
 
     // ----- Generic three-dot menus.
@@ -3239,6 +3174,26 @@
         status.textContent='Промените са запазени локално в тестовата версия.';
       }
       toast('Промените са запазени.');
+    });
+  })();
+
+
+  // v2.40: remove fake prototype counters saved by older frontend builds.
+  (function removePrototypeMetricsV240(){
+    localStorage.setItem('marketUnreadChatCount','0');
+    localStorage.setItem('marketUnreadNotifications','0');
+
+    const remove=[];
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);
+      if(key && key.startsWith('marketPhoneTaps:'))remove.push(key);
+    }
+    remove.forEach(key=>localStorage.removeItem(key));
+
+    document.querySelectorAll('[data-chat-badge],[data-notification-badge]').forEach(b=>{
+      b.textContent='';
+      b.classList.remove('has-unread');
+      b.setAttribute('aria-hidden','true');
     });
   })();
 
