@@ -2812,4 +2812,52 @@
     }
   })();
 
+
+  // v2.29 archive semantics: archived != closed.
+  (function archiveSemanticsV229(){
+    const shell=document.querySelector('.chat-shell');
+    const banner=document.querySelector('[data-archived-chat-banner]');
+    const form=document.querySelector('[data-chat-form]');
+    if(!shell)return;
+
+    const archiveKey='marketArchivedConversationIdsV227';
+
+    const readArchived=()=>{
+      try{
+        const v=JSON.parse(localStorage.getItem(archiveKey)||'[]');
+        return Array.isArray(v)?v:[];
+      }catch(e){return[]}
+    };
+    const saveArchived=ids=>{
+      localStorage.setItem(archiveKey,JSON.stringify([...new Set(ids)]));
+    };
+
+    const activeConversation=()=>shell.querySelector('.conversation.active');
+
+    const syncBanner=()=>{
+      const c=activeConversation();
+      const isArchived=c?.dataset?.conversationState==='archived';
+      if(banner)banner.hidden=!isArchived;
+    };
+
+    shell.querySelectorAll('.conversation').forEach(c=>{
+      c.addEventListener('click',()=>setTimeout(syncBanner,0));
+    });
+
+    form?.addEventListener('submit',()=>{
+      const c=activeConversation();
+      if(!c || c.dataset.conversationState!=='archived')return;
+
+      const id=c.dataset.conversationId||'';
+      c.dataset.conversationState='active';
+      if(id)saveArchived(readArchived().filter(x=>x!==id));
+
+      if(banner)banner.hidden=true;
+      localStorage.setItem('marketConversationViewV227','active');
+      window.marketToast?.('Разговорът е върнат в „Активни“.');
+    },true);
+
+    syncBanner();
+  })();
+
 })();
