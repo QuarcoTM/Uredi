@@ -10,7 +10,35 @@
   const fbtn=$('[data-filter-toggle]'), panel=$('.filter-panel');if(fbtn&&panel)fbtn.addEventListener('click',()=>panel.classList.toggle('open'));
   const filters=$$('.filter-panel input,.filter-panel select');
   const search=$('[data-listing-search]');
-  function filterRows(){const rows=$$('.listing-row');if(!rows.length)return; const text=(search?.value||'').trim().toLowerCase();const brand=$('#brandFilter')?.value||'';const state=$('#stateFilter')?.value||'';const max=parseFloat($('#maxPrice')?.value||'999999');const city=$('#cityFilter')?.value||'';rows.forEach(r=>{const ok=(!text||r.dataset.search.includes(text))&&(!brand||r.dataset.brand===brand)&&(!state||r.dataset.state===state)&&(+r.dataset.price<=max)&&(!city||r.dataset.city===city);r.style.display=ok?'grid':'none';});const count=rows.filter(r=>r.style.display!=='none').length;const cc=$('[data-result-count]');if(cc)cc.textContent=count+' обяви';}
+  function filterRows(){
+    const rows=$$('.listing-row');if(!rows.length)return;
+    const norm=s=>(s||'').toString().toLowerCase().trim();
+    const categoryAlias=s=>{
+      const v=norm(s);
+      if(v==='печки'||v==='готварска печка'||v==='готварски печки')return 'готварски печки';
+      return v;
+    };
+    const text=(search?.value||'').trim().toLowerCase();
+    const category=$('#categoryFilter')?.value||'';
+    const brand=$('#brandFilter')?.value||'';
+    const state=$('#stateFilter')?.value||'';
+    const seller=$('#sellerTypeFilter')?.value||'';
+    const min=parseFloat($('#minPrice')?.value||'0')||0;
+    const max=parseFloat($('#maxPrice')?.value||'999999')||999999;
+    const city=$('#cityFilter')?.value||'';
+    rows.forEach(r=>{
+      const ok=(!text||(r.dataset.search||'').includes(text)) &&
+        (!category||categoryAlias(r.dataset.category)===categoryAlias(category)) &&
+        (!brand||r.dataset.brand===brand) &&
+        (!state||r.dataset.state===state) &&
+        (!seller||r.dataset.sellerType===seller) &&
+        (+r.dataset.price>=min) && (+r.dataset.price<=max) &&
+        (!city||r.dataset.city===city);
+      r.style.display=ok?'grid':'none';
+    });
+    const count=rows.filter(r=>r.style.display!=='none').length;
+    const cc=$('[data-result-count]');if(cc)cc.textContent=count+' обяви';
+  }
   filters.forEach(x=>x.addEventListener('change',filterRows));filters.forEach(x=>x.addEventListener('input',filterRows));if(search)search.addEventListener('input',filterRows);
   const cookie=$('.cookie-bar');if(cookie&&!localStorage.getItem('cookieChoice'))setTimeout(()=>cookie.classList.add('show'),300);$$('[data-cookie]').forEach(b=>b.addEventListener('click',()=>{localStorage.setItem('cookieChoice',b.dataset.cookie);cookie?.classList.remove('show');}));
   const sections=$$('.form-section');let step=0;function showStep(n){step=Math.max(0,Math.min(sections.length-1,n));sections.forEach((s,i)=>s.classList.toggle('active',i===step));$$('.step').forEach((x,i)=>x.classList.toggle('active',i<=step));const prev=$('[data-prev]'), next=$('[data-next]'), pub=$('[data-publish]');if(prev)prev.style.visibility=step===0?'hidden':'visible';if(next)next.style.display=step===sections.length-1?'none':'inline-flex';if(pub)pub.style.display=step===sections.length-1?'inline-flex':'none';window.scrollTo({top:0,behavior:'smooth'});}if(sections.length){showStep(0);$('[data-next]')?.addEventListener('click',()=>showStep(step+1));$('[data-prev]')?.addEventListener('click',()=>showStep(step-1));$('[data-publish]')?.addEventListener('click',()=>{localStorage.setItem('demoAdPublished','1');location.href='my-ads.html?published=1';});}
@@ -729,42 +757,93 @@
     },true);
   })();
 
-  // v2.6 category / brand landing pages.
-  (function(){
+  // v2.25 category / brand landing pages with real scoped filtering.
+  (function landingRoutingV225(){
     const body=document.body;
     const kind=body?.dataset?.landingKind;
     if(!kind)return;
 
     const params=new URLSearchParams(location.search);
-    const name=(params.get('name')||'').trim();
+    const rawName=(params.get('name')||'').trim();
     const brand=(params.get('brand')||'').trim();
+
+    const categoryAliases={
+      'Печки':'Готварски печки',
+      'Готварска печка':'Готварски печки',
+      'Готварски печки':'Готварски печки'
+    };
+    const canonicalCategory=name=>categoryAliases[name]||name;
+
+    const categories=[
+      'Перални','Сушилни','Перални със сушилни','Хладилници','Фризери',
+      'Съдомиялни','Фурни','Готварски печки','Котлони','Аспиратори',
+      'Микровълнови','Климатици','Бойлери','Друга бяла техника'
+    ];
+    const brands=['Bosch','Samsung','LG','AEG','Siemens'];
 
     const title=document.querySelector('[data-landing-title]');
     const subtitle=document.querySelector('[data-landing-subtitle]');
     const label=document.querySelector('[data-landing-label]');
     const links=document.querySelector('[data-landing-links]');
-
-    const categories=['Перални','Сушилни','Хладилници','Печки','Фризери','Съдомиялни','Фурни','Котлони'];
-    const brands=['Bosch','Samsung','LG','AEG','Siemens'];
+    const breadcrumb=document.querySelector('.breadcrumb span:last-child');
+    const categoryFilter=document.querySelector('#categoryFilter');
+    const brandFilter=document.querySelector('#brandFilter');
 
     if(kind==='category'){
-      const heading=brand?`${name} ${brand}`:(name||'Категория');
+      const name=canonicalCategory(rawName);
+      const valid=categories.includes(name);
+      const heading=valid?(brand?`${name} ${brand}`:name):'Обяви';
+
       if(title)title.textContent=heading;
-      if(subtitle)subtitle.textContent=`Актуални обяви за ${heading.toLowerCase()} с директен контакт с продавача.`;
+      if(subtitle)subtitle.textContent=valid
+        ? `Актуални обяви за ${heading.toLowerCase()} с директен контакт с продавача.`
+        : 'Разгледай всички актуални обяви.';
+      if(breadcrumb)breadcrumb.textContent=valid?name:'Обяви';
       if(label)label.textContent='Популярни марки:';
-      if(links)links.innerHTML=brands.map(b=>`<a class="${b===brand?'active':''}" href="category.html?name=${encodeURIComponent(name)}&brand=${encodeURIComponent(b)}">${b}</a>`).join('');
+      if(links&&valid){
+        links.innerHTML=brands.map(b=>
+          `<a class="${b===brand?'active':''}" href="category.html?name=${encodeURIComponent(name)}&brand=${encodeURIComponent(b)}">${b}</a>`
+        ).join('');
+      }
+
+      if(valid&&categoryFilter){
+        const option=[...categoryFilter.options].find(o=>canonicalCategory(o.value||o.textContent)===name);
+        if(option)categoryFilter.value=option.value;
+        categoryFilter.disabled=true;
+        categoryFilter.setAttribute('aria-label',`Категория: ${name}`);
+        categoryFilter.dataset.routeLocked='1';
+      }
+      if(brand&&brandFilter){
+        const option=[...brandFilter.options].find(o=>(o.value||o.textContent)===brand);
+        if(option)brandFilter.value=option.value;
+      }
+
       document.title=heading+' · Пазар за бяла техника';
     }
 
     if(kind==='brand'){
+      const name=rawName;
       const heading=name?`${name} · бяла техника`:'Марка';
       if(title)title.textContent=heading;
       if(subtitle)subtitle.textContent=`Разгледай актуалните обяви за ${name||'избраната марка'} по категории.`;
+      if(breadcrumb)breadcrumb.textContent=name||'Марка';
       if(label)label.textContent='Категории:';
-      if(links)links.innerHTML=categories.slice(0,6).map(c=>`<a href="category.html?name=${encodeURIComponent(c)}&brand=${encodeURIComponent(name)}">${c}</a>`).join('');
+      if(links)links.innerHTML=categories.slice(0,8).map(c=>
+        `<a href="category.html?name=${encodeURIComponent(c)}&brand=${encodeURIComponent(name)}">${c}</a>`
+      ).join('');
+
+      if(name&&brandFilter){
+        const option=[...brandFilter.options].find(o=>(o.value||o.textContent)===name);
+        if(option)brandFilter.value=option.value;
+        brandFilter.disabled=true;
+        brandFilter.setAttribute('aria-label',`Марка: ${name}`);
+        brandFilter.dataset.routeLocked='1';
+      }
+
       document.title=heading+' · Пазар за бяла техника';
     }
   })();
+
 
   // v2.6 point search suggestions to the category/brand landing pages.
   document.addEventListener('focusin',e=>{
@@ -1409,9 +1488,50 @@
         minPrice:$('#minPrice'),maxPrice:$('#maxPrice'),q:search
       };
 
-      // Query from header / shared URL.
-      const urlQ=new URLSearchParams(location.search).get('q');
-      if(urlQ&&search&&!search.value)search.value=urlQ;
+      // v2.25: Query/filter state from shared URLs and landing pages.
+      const routeParams=new URLSearchParams(location.search);
+      const bodyKind=document.body?.dataset?.landingKind||'';
+      const aliasCategory=s=>{
+        const v=(s||'').trim();
+        return ({'Печки':'Готварски печки','Готварска печка':'Готварски печки'}[v]||v);
+      };
+      const findOption=(control,wanted,key)=>{
+        if(!control||!wanted)return null;
+        return [...control.options].find(o=>{
+          const ov=(o.value||o.textContent||'').trim();
+          return key==='category'
+            ? clean(aliasCategory(ov))===clean(aliasCategory(wanted))
+            : clean(ov)===clean(wanted);
+        });
+      };
+      const applyRouteValue=(key,wanted)=>{
+        const c=controls[key];
+        if(!c||!wanted)return;
+        const opt=c.tagName==='SELECT'?findOption(c,wanted,key):null;
+        if(c.tagName==='SELECT'){
+          if(opt)c.value=opt.value;
+        }else if(!c.value){
+          c.value=wanted;
+        }
+      };
+
+      const routeCategory=routeParams.get('category') ||
+        (bodyKind==='category'?aliasCategory(routeParams.get('name')||''):'');
+      const routeBrand=routeParams.get('brand') ||
+        (bodyKind==='brand'?(routeParams.get('name')||''):'');
+      applyRouteValue('category',routeCategory);
+      applyRouteValue('brand',routeBrand);
+      applyRouteValue('city',routeParams.get('city')||'');
+      applyRouteValue('state',routeParams.get('state')||'');
+      applyRouteValue('seller',routeParams.get('seller')||'');
+      applyRouteValue('minPrice',routeParams.get('minPrice')||'');
+      applyRouteValue('maxPrice',routeParams.get('maxPrice')||'');
+      applyRouteValue('q',routeParams.get('q')||'');
+
+      const baseScope={
+        category:bodyKind==='category'?(controls.category?.value||''):'',
+        brand:bodyKind==='brand'?(controls.brand?.value||''):''
+      };
 
       const value=k=>(controls[k]?.value||'').trim();
       const labelFor=(k,v)=>({
@@ -1427,7 +1547,7 @@
         const min=parseFloat(value('minPrice')||'0')||0;
         const max=parseFloat(value('maxPrice')||'999999')||999999;
         return qOk &&
-          (!value('category')||clean(r.dataset.category)===clean(value('category'))) &&
+          (!value('category')||clean(aliasCategory(r.dataset.category))===clean(aliasCategory(value('category')))) &&
           (!value('brand')||r.dataset.brand===value('brand')) &&
           (!value('state')||r.dataset.state===value('state')) &&
           (!value('city')||clean(r.dataset.city)===clean(value('city'))) &&
@@ -1481,7 +1601,10 @@
           const v=(c.value||'').trim();
           if(v)active.push([k,v]);
         });
-        chips.innerHTML=active.map(([k,v])=>`<span class="filter-chip">${labelFor(k,v)} <button type="button" data-remove-filter="${k}" aria-label="Премахни">×</button></span>`).join('');
+        chips.innerHTML=active.map(([k,v])=>{
+          const locked=!!baseScope[k];
+          return `<span class="filter-chip${locked?' route-locked':''}">${labelFor(k,v)} ${locked?'':`<button type="button" data-remove-filter="${k}" aria-label="Премахни">×</button>`}</span>`;
+        }).join('');
         chipWrap.style.display=active.length?'flex':'none';
       };
 
@@ -1490,7 +1613,7 @@
         const matched=sortedRows();
         rows.forEach(r=>r.style.display='none');
         matched.slice(0,visibleLimit).forEach(r=>r.style.display='grid');
-        if(count)count.textContent=matched.length+' обяви';
+        if(count)count.textContent=matched.length===1?'1 обява':matched.length+' обяви';
         if(zero)zero.style.display=matched.length?'none':'block';
         if(loadMore){
           loadMore.style.display=matched.length>visibleLimit?'flex':'none';
@@ -1512,16 +1635,19 @@
         const remove=e.target.closest('[data-remove-filter]');
         if(remove){
           const key=remove.dataset.removeFilter;
-          if(controls[key])controls[key].value='';
+          if(controls[key])controls[key].value=baseScope[key]||'';
           lastChangedKey='';visibleLimit=5;apply();
         }
         if(e.target.closest('[data-clear-filters]')){
-          Object.values(controls).forEach(c=>{if(c)c.value=''});
+          Object.entries(controls).forEach(([k,c])=>{
+            if(!c)return;
+            c.value=baseScope[k]||'';
+          });
           lastChangedKey='';visibleLimit=5;apply();
         }
         if(e.target.closest('[data-remove-last-filter]')){
           const keys=[lastChangedKey,'q','maxPrice','minPrice','seller','city','state','brand','category'].filter(Boolean);
-          const key=keys.find(k=>controls[k]&&(controls[k].value||'').trim());
+          const key=keys.find(k=>controls[k]&&(controls[k].value||'').trim()&&!baseScope[k]);
           if(key)controls[key].value='';
           lastChangedKey='';visibleLimit=5;apply();
         }
@@ -2027,27 +2153,85 @@
       if(!e.target.closest('.overflow-menu'))closeMenus();
     });
 
-    // ----- Active / archived conversations.
-    const showConversationView=view=>{
-      $$('[data-conversation-view]').forEach(b=>{
-        const active=b.dataset.conversationView===view;
-        b.classList.toggle('active',active);
-        b.setAttribute('aria-selected',active?'true':'false');
-      });
-      $$('[data-conversation-state]').forEach(c=>{
-        c.hidden=c.dataset.conversationState!==view;
+    // ----- Active / archived conversations (v2.27).
+    const conversationViewKey='marketConversationViewV227';
+    const conversationArchiveKey='marketArchivedConversationIdsV227';
+
+    const readArchivedConversationIds=()=>{
+      try{
+        const value=JSON.parse(localStorage.getItem(conversationArchiveKey)||'[]');
+        return Array.isArray(value)?value:[];
+      }catch(e){return[]}
+    };
+
+    const saveArchivedConversationIds=ids=>{
+      localStorage.setItem(conversationArchiveKey,JSON.stringify([...new Set(ids)]));
+    };
+
+    const restoreConversationArchiveState=()=>{
+      const archived=new Set(readArchivedConversationIds());
+      $$('.conversation[data-conversation-id]').forEach(c=>{
+        if(archived.has(c.dataset.conversationId))c.dataset.conversationState='archived';
       });
     };
-    $$('[data-conversation-view]').forEach(b=>b.addEventListener('click',()=>showConversationView(b.dataset.conversationView)));
-    if($('[data-conversation-tabs]'))showConversationView('active');
+
+    const showConversationView=view=>{
+      const safeView=view==='archived'?'archived':'active';
+      localStorage.setItem(conversationViewKey,safeView);
+
+      $$('[data-conversation-view]').forEach(b=>{
+        const selected=b.dataset.conversationView===safeView;
+        b.classList.toggle('active',selected);
+        b.setAttribute('aria-selected',selected?'true':'false');
+        b.tabIndex=selected?0:-1;
+      });
+
+      const rows=$$('.conversation[data-conversation-state]');
+      rows.forEach(c=>{
+        const visible=c.dataset.conversationState===safeView;
+        c.hidden=!visible;
+        c.setAttribute('aria-hidden',visible?'false':'true');
+        // Explicit style makes the prototype robust even if an old CSS cache survives.
+        c.style.display=visible?'flex':'none';
+      });
+
+      const visibleCount=rows.filter(c=>c.dataset.conversationState===safeView).length;
+      $$('[data-conversation-empty]').forEach(empty=>{
+        empty.hidden=empty.dataset.conversationEmpty!==safeView || visibleCount>0;
+      });
+    };
+
+    restoreConversationArchiveState();
+
+    $$('[data-conversation-view]').forEach(b=>b.addEventListener('click',e=>{
+      e.preventDefault();
+      showConversationView(b.dataset.conversationView);
+    }));
+
+    if($('[data-conversation-tabs]')){
+      showConversationView(localStorage.getItem(conversationViewKey)||'active');
+    }
 
     $('[data-archive-conversation]')?.addEventListener('click',()=>{
-      const active=$('.conversation[data-conversation-state="active"].active') || $('.conversation[data-conversation-state="active"]');
+      const active=$('.conversation[data-conversation-state="active"].active') ||
+                   $('.conversation[data-conversation-state="active"]');
       if(active){
+        const id=active.dataset.conversationId;
         active.dataset.conversationState='archived';
-        active.hidden=true;
+
+        if(id){
+          const ids=readArchivedConversationIds();
+          saveArchivedConversationIds([...ids,id]);
+        }
+
+        showConversationView('archived');
+
         window.marketToast?.('Разговорът е архивиран.','Върни',()=>{
-          active.dataset.conversationState='active';showConversationView('active');
+          active.dataset.conversationState='active';
+          if(id){
+            saveArchivedConversationIds(readArchivedConversationIds().filter(x=>x!==id));
+          }
+          showConversationView('active');
         });
       }
       closeMenus();
@@ -2609,6 +2793,23 @@
       if(e.target.closest('[data-cookie-save]'))setTimeout(activate,0);
     },true);
     activate();
+  })();
+
+
+  // v2.25 category-routing safety: never show another category on a category landing page.
+  (function categoryRoutingSafetyV225(){
+    const body=document.body;
+    if(body?.dataset?.landingKind!=='category')return;
+    const params=new URLSearchParams(location.search);
+    const aliases={'Печки':'Готварски печки','Готварска печка':'Готварски печки'};
+    const category=aliases[params.get('name')]||params.get('name')||'';
+    const zero=document.querySelector('[data-zero-results]');
+    if(zero&&category){
+      const h=zero.querySelector('h3');
+      const p=zero.querySelector('p');
+      if(h)h.textContent=`Няма активни тестови обяви в „${category}“`;
+      if(p)p.textContent='Категорията е отворена правилно. При реални обяви тук ще се показват само уреди от тази категория.';
+    }
   })();
 
 })();
