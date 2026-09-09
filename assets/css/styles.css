@@ -4585,3 +4585,156 @@ pre,code{
   }
   .promotion-card-body{padding:4px 14px 13px}
 }
+
+
+/* ===== v2.50 pre-backend completion pass ===== */
+
+/* Public FREE BETA early-user bonus */
+.beta-public-section{padding:12px 0 0}
+.beta-public-banner{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  padding:13px 14px;
+  border:1px solid #dce5f0;
+  border-radius:14px;
+  background:#f8fbff;
+}
+.beta-public-mark,
+.beta-register-mark{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-width:42px;
+  height:30px;
+  padding:0 8px;
+  border-radius:8px;
+  background:#1767d9;
+  color:#fff;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.04em;
+}
+.beta-public-copy,
+.beta-register-banner>div:last-child{display:grid;gap:2px}
+.beta-public-copy strong,
+.beta-register-banner strong{font-size:12px;color:#203149}
+.beta-public-copy span,
+.beta-register-banner span{font-size:10px;line-height:1.4;color:#657086}
+.beta-public-action{white-space:nowrap}
+
+.beta-register-banner{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:center;
+  gap:10px;
+  margin:12px 0 16px;
+  padding:11px 12px;
+  border:1px solid #dce5f0;
+  border-radius:12px;
+  background:#f8fbff;
+}
+.beta-register-banner[hidden],
+.beta-public-section[hidden]{display:none!important}
+
+/* Registration: trader-specific fields only when needed */
+.register-trader-fields{
+  display:grid;
+  gap:12px;
+  padding:13px;
+  border:1px solid #e2e8ef;
+  border-radius:12px;
+  background:#fafbfd;
+}
+.register-trader-fields[hidden]{display:none!important}
+.register-trader-head{display:grid;gap:3px}
+.register-trader-head strong{font-size:12px;color:#26364b}
+.register-trader-head span{font-size:10px;line-height:1.4;color:#657086}
+.auth-form .check a{font-weight:750}
+
+/* Clean truthful security page */
+.security-clean-card:empty{display:none}
+
+/* Full ad preview */
+.ad-preview-title-row{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-top:12px;
+}
+.ad-preview-title-row h2{
+  margin:3px 0 0;
+  font-size:18px;
+  line-height:1.2;
+  color:#17243a;
+}
+.ad-preview-category{
+  font-size:10px;
+  color:#657086;
+  font-weight:700;
+}
+.ad-preview-title-row .preview-price{
+  flex:0 0 auto;
+  margin:0;
+  font-size:22px;
+}
+.ad-preview-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:10px 0 14px;
+}
+.ad-preview-meta span{
+  padding:5px 8px;
+  border-radius:8px;
+  background:#f1f4f7;
+  color:#526278;
+  font-size:9.5px;
+  font-weight:700;
+}
+.ad-preview-section{
+  padding:12px 0;
+  border-top:1px solid #edf1f4;
+}
+.ad-preview-section strong{font-size:11px;color:#26354a}
+.ad-preview-section p{
+  margin:5px 0 0;
+  color:#526278;
+  font-size:11px;
+  line-height:1.5;
+  white-space:pre-wrap;
+}
+.ad-preview-contact{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  padding:12px 0;
+  border-top:1px solid #edf1f4;
+}
+.ad-preview-contact>div{display:grid;gap:2px}
+.ad-preview-contact span{font-size:9px;color:#657086}
+.ad-preview-contact strong{font-size:11px;color:#26354a}
+.ad-preview-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  padding-top:12px;
+  border-top:1px solid #edf1f4;
+}
+.ad-preview-actions .primary-btn,
+.ad-preview-actions .secondary-btn{justify-content:center;width:100%}
+
+@media(max-width:720px){
+  .beta-public-banner{
+    grid-template-columns:auto minmax(0,1fr);
+  }
+  .beta-public-action{
+    grid-column:1/-1;
+    width:100%;
+    justify-content:center;
+  }
+  .ad-preview-contact{grid-template-columns:1fr}
+  .ad-preview-actions{grid-template-columns:1fr}
+}
