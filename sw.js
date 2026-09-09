@@ -1,9 +1,10 @@
-const CACHE='tehnika-v2.45';
+const CACHE='tehnika-v2.48';
 const CORE=[
   './index.html',
+  './profile-promotions.html',
   './assets/css/styles.css',
-  './assets/js/app.js',
-  './assets/js/monetization.js',
+  './assets/js/app-v248.js',
+  './assets/js/monetization-v246.js',
   './assets/js/category-page.js',
   './assets/img/logo.png'
 ];
@@ -65,9 +66,9 @@ self.addEventListener('fetch',event=>{
   // They NEVER fall back to an HTML page.
   if(sameOrigin){
     event.respondWith((async()=>{
-      const cached=await caches.match(request,{ignoreSearch:true});
+      const cached=await caches.match(request,{ignoreSearch:false});
 
-      const networkPromise=fetch(request)
+      const networkPromise=fetch(request,{cache:'no-store'})
         .then(async response=>{
           await cachePut(request,response);
           return response;
