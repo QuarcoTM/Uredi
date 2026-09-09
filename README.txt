@@ -1,16 +1,15 @@
-TEHNIKA v2.48
+TEHNIKA v2.49
 
-PROMOTION ACCOUNT HUB
-- Visible name changed from "Промоции и бонуси" to "Промотиране на обяви".
-- Profile subtitle: "VIP, TOP, Изкачи и бонуси".
-- Dedicated page shows:
-  - available activations;
-  - active count per TOP/VIP product;
-  - FREE BETA bonuses separately;
-  - active promotions on the user's listings;
-  - promotion history.
-- Example behavior after buying 7 VIP activations and using 2:
-  "5 налични · 2 активни".
-- "Купи активации" appears only when paid services are enabled.
-- During FREE BETA there is still no purchase button, no prices and no checkout.
-- Empty states remain truthful; no fake counts are shown.
+PROMOTION PAGE CLEANUP
+- Cleaner mobile structure for "Промотиране на обяви".
+- Compact overview at the top: available activations / active promotions.
+- Card content now has proper internal padding; no floating text against borders.
+- Explicit truthful empty states:
+  - "Нямаш налични активации"
+  - "Нямаш активни промотирания"
+  - "Нямаш история на промотиране"
+- If paid services are enabled and the user has never purchased anything, the page explicitly says:
+  "Все още не си купувал VIP, TOP или Изкачи."
+- If there is no history at all:
+  "Все още не си купувал, получавал или използвал VIP, TOP, Изкачи или бонус."
+- Buy button remains hidden during FREE BETA.

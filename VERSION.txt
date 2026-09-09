@@ -1,2 +1,2 @@
-tehnika v2.48
-Promotion inventory hub: VIP/TOP/Bump/bonuses, active counts, purchase entry point and history.
+tehnika v2.49
+Promotions account page visual cleanup and explicit empty states.
