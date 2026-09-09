@@ -1,2 +1,2 @@
-tehnika v2.40
-Removed fake public metrics, verification and presence statuses
+tehnika v2.42
+Featured listings hierarchy: VIP > TOP > bump
