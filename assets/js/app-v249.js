@@ -292,6 +292,58 @@
     setInterval(sort,60000);sort();
   })();
 
+
+  // v2.50 public FREE BETA campaign messaging.
+  (function betaCampaignPublicV250(){
+    const M=window.MarketMonetization;
+    const blocks=[...document.querySelectorAll('[data-beta-public-campaign]')];
+    if(!M||!blocks.length)return;
+
+    const campaign=M.getBonusCampaign?.()||{};
+    const platform=M.getPlatform?.()||{};
+    const config=M.getConfig?.()||{};
+    const product=config.products?.[campaign.creditProductId];
+    const end=campaign.redeemUntil?new Date(campaign.redeemUntil):null;
+    const expired=end&&!Number.isNaN(end.getTime())&&end.getTime()<Date.now();
+
+    if(!platform.freeBeta||!campaign.enabled||expired||!product){
+      blocks.forEach(x=>x.hidden=true);
+      return;
+    }
+
+    const max=Number(campaign.maxVerifiedUsers||500);
+    const qty=Number(campaign.qty||1);
+    const productName=product.name||'TOP · 7 дни';
+    const title='Първите '+max+' потвърдени регистрации получават '+qty+' × '+productName;
+    const copy=(end&&!Number.isNaN(end.getTime()))
+      ? 'Бонусът може да се активира до '+end.toLocaleDateString('bg-BG')+'. Няма плащане.'
+      : 'Бонусът е безплатен. Няма плащане.';
+
+    blocks.forEach(block=>{
+      const t=block.querySelector('[data-beta-campaign-title]');
+      const c=block.querySelector('[data-beta-campaign-copy]');
+      if(t)t.textContent=title;
+      if(c)c.textContent=copy;
+      block.hidden=false;
+    });
+  })();
+
+  // v2.50 private / trader registration fields.
+  (function registrationProfileV250(){
+    const type=document.querySelector('[data-register-type]');
+    const panel=document.querySelector('[data-register-trader-fields]');
+    if(!type||!panel)return;
+    const sync=()=>{
+      const dealer=type.value==='dealer';
+      panel.hidden=!dealer;
+      panel.querySelectorAll('input').forEach(input=>{
+        input.setAttribute('aria-required',dealer?'true':'false');
+      });
+    };
+    type.addEventListener('change',sync);
+    sync();
+  })();
+
   // v2.2: email verification flow for the static prototype.
   (function emailVerification(){
     $('[data-register-submit]')?.addEventListener('click',()=>localStorage.setItem('marketEmailVerified','0'));
@@ -1414,21 +1466,72 @@
       },true);
     }
 
-    // Preview modal uses the first prepared photo.
+    // v2.50 full mobile preview before publishing.
     const modal=document.querySelector('[data-ad-preview-modal]');
+    const selectedText=el=>el?.selectedOptions?.[0]?.textContent?.trim()||'';
+    const closePreview=()=>{
+      if(!modal)return;
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden','true');
+    };
+
     document.querySelector('[data-ad-preview]')?.addEventListener('click',()=>{
       if(!modal)return;
+
       const first=readyItems()[0];
       const ph=modal.querySelector('[data-preview-photo]');
       if(ph)ph.innerHTML=first?`<img src="${first.url}" alt="">`:'Основна снимка';
-      modal.querySelector('[data-preview-price]').textContent=(document.querySelector('[data-ad-price]')?.value||'—')+' €';
-      modal.querySelector('[data-preview-description]').textContent=document.querySelector('[data-ad-description]')?.value||'Описанието ще се покаже тук.';
+
+      const category=selectedText(document.querySelector('[data-ad-category]'))||'Категория';
+      let brand=selectedText(document.querySelector('[data-ad-brand]'))||'Марка';
+      if(brand==='Друга марка'){
+        brand=document.querySelector('[data-other-brand-input]')?.value.trim()||'Друга марка';
+      }
+      const model=document.querySelector('[data-ad-model]')?.value.trim()||'';
+      const condition=selectedText(document.querySelector('[data-ad-condition]'))||'Състояние';
+      const warranty=selectedText(document.querySelector('[data-ad-warranty]'))||'Без гаранция';
+      const city=document.querySelector('[data-ad-city]')?.value.trim()||'Градът не е попълнен';
+      const delivery=selectedText(document.querySelector('[data-ad-delivery]'))||'Не е избрано';
+      const price=document.querySelector('[data-ad-price]')?.value||'—';
+      const description=document.querySelector('[data-ad-description]')?.value.trim()||'Описанието не е попълнено.';
+      const defects=document.querySelector('[data-ad-defects]')?.value.trim()||'';
+      const phone=document.querySelector('[data-ad-phone]')?.value.trim()||'';
+      const phoneVisible=!!document.querySelector('[data-ad-phone-visible]')?.checked;
+
+      const title=(brand+(model?' '+model:'')).trim();
+
+      const set=(sel,value)=>{
+        const el=modal.querySelector(sel);
+        if(el)el.textContent=value;
+      };
+      set('[data-preview-category]',category);
+      set('[data-preview-title]',title||category);
+      set('[data-preview-price]',price+' €');
+      set('[data-preview-condition]',condition);
+      set('[data-preview-city]',city);
+      set('[data-preview-warranty]',warranty);
+      set('[data-preview-description]',description);
+      set('[data-preview-delivery]',delivery);
+      set('[data-preview-phone]',phone&&phoneVisible?phone:'Само чат');
+
+      const defectsWrap=modal.querySelector('[data-preview-defects-wrap]');
+      if(defectsWrap){
+        defectsWrap.hidden=!defects;
+        if(defects)set('[data-preview-defects]',defects);
+      }
+
       modal.classList.add('open');
       modal.setAttribute('aria-hidden','false');
     });
-    modal?.querySelectorAll('[data-close-preview]').forEach(x=>x.addEventListener('click',()=>{
-      modal.classList.remove('open');modal.setAttribute('aria-hidden','true');
-    }));
+
+    modal?.querySelectorAll('[data-close-preview]').forEach(x=>x.addEventListener('click',closePreview));
+    modal?.querySelector('[data-preview-publish]')?.addEventListener('click',()=>{
+      closePreview();
+      document.querySelector('[data-publish]')?.click();
+    });
+    document.addEventListener('keydown',e=>{
+      if(e.key==='Escape'&&modal?.classList.contains('open'))closePreview();
+    });
 
     draw();
   })();
@@ -2819,9 +2922,60 @@
       const name=document.querySelector('[data-register-name]')?.value.trim()||'';
       const email=document.querySelector('[data-register-email]')?.value.trim()||'';
       const pass=document.querySelector('[data-register-password]')?.value||'';
-      if(!name||!email||pass.length<8){addAttempt();window.marketToast?.('Провери име, email и парола минимум 8 символа.');return}
-      if(!permitted()){window.marketToast?.('Потвърди защитната проверка.');return}
-      sessionStorage.removeItem(key);location.href='verify-email.html';
+      const type=document.querySelector('[data-register-type]')?.value||'private';
+      const terms=!!document.querySelector('[data-register-terms]')?.checked;
+      const emailOk=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+
+      if(!name||!emailOk||pass.length<8){
+        addAttempt();
+        window.marketToast?.('Провери име, валиден email и парола минимум 8 символа.');
+        return;
+      }
+      if(!terms){
+        window.marketToast?.('Приеми Общите условия и Политиката за поверителност.');
+        return;
+      }
+
+      let companyName='',eik='',companyCity='';
+      if(type==='dealer'){
+        companyName=document.querySelector('[data-register-company]')?.value.trim()||'';
+        eik=(document.querySelector('[data-register-eik]')?.value||'').replace(/\s+/g,'');
+        companyCity=document.querySelector('[data-register-company-city]')?.value.trim()||'';
+        if(!companyName||!companyCity||!/^(?:\d{9}|\d{13})$/.test(eik)){
+          window.marketToast?.('За търговец попълни фирма, валиден ЕИК / Булстат и седалище.');
+          return;
+        }
+      }
+
+      if(!permitted()){
+        window.marketToast?.('Потвърди защитната проверка.');
+        return;
+      }
+
+      const pending={
+        name,email,
+        type:type==='dealer'?'dealer':'private',
+        companyName:type==='dealer'?companyName:null,
+        eik:type==='dealer'?eik:null,
+        companyCity:type==='dealer'?companyCity:null
+      };
+      localStorage.setItem('marketPendingRegistrationV250',JSON.stringify(pending));
+
+      const M=window.MarketMonetization;
+      if(M?.setCurrentUser){
+        M.setCurrentUser({
+          id:'demo-user',
+          name,
+          type:pending.type,
+          email,
+          companyName:pending.companyName,
+          eik:pending.eik,
+          companyCity:pending.companyCity
+        });
+      }
+
+      sessionStorage.removeItem(key);
+      location.href='verify-email.html';
     });
   })();
 
