@@ -4424,3 +4424,103 @@ pre,code{
 .beta-bonus-remaining strong{font-size:20px;color:#17243a}
 .beta-choose-listing{margin-top:14px}
 .post-promo-option em{font-style:normal;font-size:9px;font-weight:900;color:#1767d9}
+
+/* ===== v2.47 promotions account and email change ===== */
+.promotion-account-card{overflow:hidden}
+.promotion-account-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:15px 0;
+  border-bottom:1px solid var(--line);
+  color:inherit;
+  text-decoration:none;
+}
+.promotion-account-row:last-child{border-bottom:0}
+.promotion-account-row>div{display:grid;gap:3px;min-width:0}
+.promotion-account-row strong{font-size:14px;color:#17243a}
+.promotion-account-row span{font-size:11px;color:var(--muted)}
+.promotion-active-row:hover{background:#fafbfd}
+.promotion-empty-state{display:grid;gap:5px;padding:18px 0}
+.promotion-empty-state.compact{padding:12px 0}
+.promotion-empty-state strong{font-size:13px;color:#26354c}
+.promotion-empty-state span{font-size:11px;color:var(--muted)}
+.promotion-account-footer-link{
+  display:inline-block;
+  margin-top:12px;
+  font-size:12px;
+  font-weight:750;
+  text-decoration:none;
+}
+.text-vip{color:#6b3fd1}
+.text-top{color:#1767d9}
+.security-email-change-form{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:center}
+.security-email-change-status{
+  margin-top:10px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#f8fafc;
+  color:#526278;
+  font-size:11px;
+  line-height:1.45;
+}
+@media(max-width:720px){
+  .security-email-change-form{grid-template-columns:1fr}
+  .security-email-change-form .secondary-btn{width:100%;justify-content:center}
+}
+
+/* ===== v2.48 promotion inventory hub ===== */
+.promotion-buy-strip{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:16px;
+  margin:0 0 16px;
+  border:1px solid #d7e1ef;
+  border-radius:14px;
+  background:#f8fbff;
+}
+.promotion-buy-strip[hidden]{display:none!important}
+.promotion-buy-strip>div{display:grid;gap:3px}
+.promotion-buy-strip strong{font-size:14px;color:#17243a}
+.promotion-buy-strip span{font-size:11px;color:var(--muted)}
+.promotion-account-note{font-size:11px;color:var(--muted);margin:-2px 0 8px}
+.promotion-inventory-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto;
+  align-items:center;
+  gap:14px;
+  padding:14px 0;
+  border-bottom:1px solid var(--line);
+}
+.promotion-inventory-row:last-child{border-bottom:0}
+.promotion-inventory-copy{display:grid;gap:3px;min-width:0}
+.promotion-inventory-copy>strong{font-size:14px;color:#17243a}
+.promotion-inventory-copy small{font-size:10.5px;color:var(--muted)}
+.promotion-inventory-copy .beta-chip{width:max-content;margin-bottom:2px}
+.promotion-inventory-stats{display:flex;align-items:center;gap:16px}
+.promotion-inventory-stats>div{display:grid;justify-items:center;min-width:46px}
+.promotion-inventory-stats strong{font-size:18px;line-height:1;color:#17243a}
+.promotion-inventory-stats span{font-size:9.5px;color:var(--muted);margin-top:3px}
+.promotion-history-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:12px 0;
+  border-bottom:1px solid var(--line);
+}
+.promotion-history-row:last-child{border-bottom:0}
+.promotion-history-row>div{display:grid;gap:3px}
+.promotion-history-row strong{font-size:12px;color:#26354c}
+.promotion-history-row span,.promotion-history-row small{font-size:10px;color:var(--muted)}
+@media(max-width:720px){
+  .promotion-buy-strip{align-items:stretch;flex-direction:column}
+  .promotion-buy-strip .primary-btn{width:100%;justify-content:center}
+  .promotion-inventory-row{grid-template-columns:minmax(0,1fr) auto}
+  .promotion-inventory-row>.mini-btn{grid-column:1/-1;width:100%;justify-content:center}
+  .promotion-inventory-stats{gap:10px}
+}
