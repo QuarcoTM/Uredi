@@ -1584,13 +1584,23 @@
       if(!btn)return;
       const action=btn.dataset.securityAction;
       if(action==='change-email'){
+        const currentPassword=$('[data-email-current-password]')?.value.trim()||'';
         const email=$('[data-new-email]')?.value.trim()||'';
+        const status=$('[data-email-change-status]');
+        if(!currentPassword){
+          window.marketToast('Въведи текущата си парола.');
+          $('[data-email-current-password]')?.focus();return;
+        }
         if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
           window.marketToast('Въведи валиден нов email адрес.');
           $('[data-new-email]')?.focus();return;
         }
         localStorage.setItem('pendingEmailChange',email);
-        window.marketToast('Изпратено е потвърждение към новия email.');
+        if(status){
+          status.hidden=false;
+          status.textContent='Новият email ще стане активен едва след потвърждение. Дотогава текущият адрес остава без промяна.';
+        }
+        window.marketToast('Потвърждението на новия email е заявено.');
       }
       if(action==='reset-password')window.marketToast('Изпратен е защитен линк за нова парола.');
       if(action==='signout-all'){
@@ -3391,24 +3401,35 @@
       renderMyAdsPromotions();window.addEventListener('market:listing-promotion-changed',renderMyAdsPromotions);window.addEventListener('storage',ev=>{if(ev.key==='marketListingPromotionsV241')renderMyAdsPromotions()});setInterval(renderMyAdsPromotions,60000);
     }
 
-    // Profile wallet shortcut; appears if paid services are on or user already has granted bonuses.
+    // v2.48 permanent "Промотиране на обяви" row in Profile.
     const profile=document.querySelector('.profile-hub-container');
     if(profile){
-      const summary=M.walletSummary(),bonus=M.getBonusSummary?.()||[];
-      if(M.paidAvailable()||bonus.length){
-        const firstMenu=profile.querySelector('.profile-menu-section .profile-menu-card');
-        if(firstMenu&&!firstMenu.querySelector('[data-wallet-profile-row]')){
-          const a=document.createElement('a');a.className='profile-menu-row';a.href='promote.html';a.dataset.walletProfileRow='';
-          let title='Изкачи / TOP / VIP',text=summary.length?summary.map(x=>x.name+': '+x.count).join(' · '):'Нямаш налични активации';
-          if(!M.paidAvailable()&&bonus.length){
-            const b=bonus[0],end=b.redeemUntil?new Date(b.redeemUntil):null;
-            title='FREE BETA бонус';
-            text=b.remaining+' × '+b.name+(end&&!Number.isNaN(end.getTime())?' · използвай до '+end.toLocaleDateString('bg-BG'):'');
-          }
-          a.innerHTML='<span aria-hidden="true" class="profile-menu-icon">★</span><span class="profile-menu-copy"><strong>'+esc(title)+'</strong><span class="profile-menu-sub">'+esc(text)+'</span></span><span aria-hidden="true" class="profile-menu-chevron">›</span>';
-          firstMenu.appendChild(a);
+      const M=window.MarketMonetization,row=profile.querySelector('[data-profile-promotions-row]'),sub=row?.querySelector('[data-profile-promotions-sub]');
+      const ownedIds=['demo-1','demo-2','demo-3','demo-4'];
+      const renderProfilePromotionSummary=()=>{
+        if(!row||!sub||!M)return;
+        const bonus=M.getBonusSummary?.()||[];
+        const wallet=M.paidAvailable?.()?(M.walletSummary?.()||[]):[];
+        const active=ownedIds.map(id=>M.getActivePromotion?.(id)).filter(Boolean);
+
+        const availableCount=
+          bonus.reduce((sum,b)=>sum+Number(b.remaining||0),0)+
+          wallet.reduce((sum,w)=>sum+Number(w.count||0),0);
+
+        if(availableCount||active.length){
+          const parts=[];
+          if(availableCount)parts.push(availableCount+' наличн'+(availableCount===1?'а активация':'и активации'));
+          if(active.length)parts.push(active.length+' активн'+(active.length===1?'а':'и'));
+          sub.textContent=parts.join(' · ');
+        }else{
+          sub.textContent='VIP, TOP, Изкачи и бонуси';
         }
-      }
+      };
+      renderProfilePromotionSummary();
+      window.addEventListener('market:bonus-changed',renderProfilePromotionSummary);
+      window.addEventListener('market:wallet-changed',renderProfilePromotionSummary);
+      window.addEventListener('market:listing-promotion-changed',renderProfilePromotionSummary);
+      window.addEventListener('storage',renderProfilePromotionSummary);
     }
   })();
 
@@ -3504,6 +3525,123 @@
     if(!M||!id||!titleRow)return;
     const render=()=>{titleRow.querySelector('[data-detail-promo-badge]')?.remove();if(!M.promotionPlacementEnabled?.())return;const state=M.getActivePromotion?.(id);if(!state)return;const badge=document.createElement('span');badge.dataset.detailPromoBadge='';badge.className='badge detail-promo-badge '+(state.kind==='vip'?'badge-vip':'badge-top');badge.textContent=state.kind==='vip'?'VIP':'TOP';titleRow.insertBefore(badge,titleRow.querySelector('[data-share-listing]')||null)};
     render();window.addEventListener('market:listing-promotion-changed',render);setInterval(render,60000);
+  })();
+
+
+  // v2.47 Promotions & bonuses account page.
+  (function profilePromotionsV248(){
+    const root=document.querySelector('[data-promotions-profile-root]');
+    const M=window.MarketMonetization;
+    if(!root||!M)return;
+    const esc=window.Market?.escapeHTML||function(v){return String(v??'').replace(/[&<>"']/g,'')};
+
+    const owned=[...root.querySelectorAll('[data-owned-listing]')].map(x=>({
+      id:x.dataset.listingId||'',
+      title:x.dataset.listingTitle||'Обява'
+    })).filter(x=>x.id);
+
+    const fmtDate=value=>{
+      const d=value?new Date(value):null;
+      return d&&!Number.isNaN(d.getTime())?d.toLocaleDateString('bg-BG'):'';
+    };
+
+    const productOrder=['vip30','vip7','top30','top7','bump'];
+
+    const render=()=>{
+      const available=root.querySelector('[data-available-promotions]');
+      const activeBox=root.querySelector('[data-active-promotions]');
+      const historyBox=root.querySelector('[data-promotion-account-history]');
+      const buyStrip=root.querySelector('[data-promotion-buy-strip]');
+      const config=M.getConfig?.()||{};
+      const bonus=M.getBonusSummary?.()||[];
+      const wallet=M.paidAvailable?.()?(M.getWallet?.()||{}):{};
+
+      if(buyStrip)buyStrip.hidden=!M.paidAvailable?.();
+
+      const activeByProduct={};
+      const activeRows=[];
+      owned.forEach(item=>{
+        const state=M.getActivePromotion?.(item.id);
+        if(!state)return;
+        const pid=state.productId||state.kind||'';
+        activeByProduct[pid]=(activeByProduct[pid]||0)+1;
+        activeRows.push(
+          '<a class="promotion-account-row promotion-active-row" href="my-ads.html"><div><strong>'+esc(item.title)+'</strong><span><b class="'+(state.kind==='vip'?'text-vip':'text-top')+'">'+(state.kind==='vip'?'VIP':'TOP')+'</b>'+(state.expiresAt?' · активен до '+esc(fmtDate(state.expiresAt)):'')+'</span></div><span class="profile-menu-chevron">›</span></a>'
+        );
+      });
+
+      const availableRows=[];
+
+      // FREE BETA / granted bonuses stay visibly distinct from purchased activations.
+      bonus.forEach(b=>{
+        const activeCount=Number(activeByProduct[b.productId]||0);
+        availableRows.push(
+          '<div class="promotion-inventory-row bonus-inventory-row"><div class="promotion-inventory-copy"><span class="beta-chip">БОНУС</span><strong>'+esc(b.name)+'</strong><small>'+(b.redeemUntil?'Може да се активира до '+esc(fmtDate(b.redeemUntil)):'Безплатна активация')+'</small></div><div class="promotion-inventory-stats"><div><strong>'+Number(b.remaining||0)+'</strong><span>налични</span></div>'+(activeCount?'<div><strong>'+activeCount+'</strong><span>активни</span></div>':'')+'</div><a class="mini-btn" href="my-ads.html">Използвай</a></div>'
+        );
+      });
+
+      if(M.paidAvailable?.()){
+        const products=config.products||{};
+        const ids=[...productOrder,...Object.keys(products).filter(id=>!productOrder.includes(id))];
+        ids.forEach(id=>{
+          const p=products[id];
+          if(!p||!p.enabled)return;
+          const availableCount=Number(wallet[id]||0);
+          const activeCount=Number(activeByProduct[id]||0);
+
+          // Keep useful rows only. Empty products are still purchasable through the Buy button above.
+          if(!availableCount&&!activeCount)return;
+
+          const statParts=[
+            '<div><strong>'+availableCount+'</strong><span>налични</span></div>'
+          ];
+          if(p.kind==='top'||p.kind==='vip'){
+            statParts.push('<div><strong>'+activeCount+'</strong><span>активни</span></div>');
+          }
+
+          availableRows.push(
+            '<div class="promotion-inventory-row"><div class="promotion-inventory-copy"><strong>'+esc(p.name)+'</strong><small>'+(p.kind==='bump'?'Еднократно изкачване':'Активации за промотиране')+'</small></div><div class="promotion-inventory-stats">'+statParts.join('')+'</div>'+(availableCount?'<a class="mini-btn" href="my-ads.html">Използвай</a>':'')+'</div>'
+          );
+        });
+      }
+
+      if(available){
+        available.innerHTML=availableRows.length
+          ? availableRows.join('')
+          : '<div class="promotion-empty-state"><strong>Нямаш налични активации</strong><span>'+(M.paidAvailable?.()?'Можеш да купиш VIP, TOP, Изкачи или пакет от бутона по-горе.':'Когато получиш FREE BETA бонус, ще го виждаш тук.')+'</span></div>';
+      }
+
+      if(activeBox){
+        activeBox.innerHTML=activeRows.length
+          ? activeRows.join('')
+          : '<div class="promotion-empty-state compact"><strong>Няма активни TOP/VIP промотирания</strong><span>Когато активираш TOP или VIP на твоя обява, тя ще се появи тук.</span></div>';
+      }
+
+      if(historyBox){
+        const currentUser=M.getCurrentUser?.()?.id||'';
+        const configProducts=config.products||{};
+        const history=(M.getHistory?.()||[]).filter(x=>!currentUser||x.userId===currentUser).slice(0,12);
+        historyBox.innerHTML=history.length?history.map(x=>{
+          const product=configProducts[x.productId];
+          const name=product?.name||x.productId||'Промотиране';
+          const d=x.at?new Date(x.at):null;
+          const when=d&&!Number.isNaN(d.getTime())?d.toLocaleString('bg-BG',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+          let action=x.reason||'Операция';
+          if(x.source==='purchase')action='Закупена активация';
+          if(x.source==='beta-bonus')action='Получен FREE BETA бонус';
+          if(x.source==='beta-bonus-use')action='Използван FREE BETA бонус';
+          if(x.source==='use')action='Използвана активация';
+          return '<div class="promotion-history-row"><div><strong>'+esc(name)+'</strong><span>'+esc(action)+'</span></div><small>'+esc(when)+'</small></div>';
+        }).join(''):'<div class="promotion-empty-state compact"><strong>Все още няма история</strong><span>Покупките, бонусите и използваните активации ще се показват тук.</span></div>';
+      }
+    };
+
+    render();
+    window.addEventListener('market:bonus-changed',render);
+    window.addEventListener('market:wallet-changed',render);
+    window.addEventListener('market:listing-promotion-changed',render);
+    window.addEventListener('storage',render);
+    setInterval(render,60000);
   })();
 
 })();

@@ -1584,13 +1584,23 @@
       if(!btn)return;
       const action=btn.dataset.securityAction;
       if(action==='change-email'){
+        const currentPassword=$('[data-email-current-password]')?.value.trim()||'';
         const email=$('[data-new-email]')?.value.trim()||'';
+        const status=$('[data-email-change-status]');
+        if(!currentPassword){
+          window.marketToast('Въведи текущата си парола.');
+          $('[data-email-current-password]')?.focus();return;
+        }
         if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
           window.marketToast('Въведи валиден нов email адрес.');
           $('[data-new-email]')?.focus();return;
         }
         localStorage.setItem('pendingEmailChange',email);
-        window.marketToast('Изпратено е потвърждение към новия email.');
+        if(status){
+          status.hidden=false;
+          status.textContent='Новият email ще стане активен едва след потвърждение. Дотогава текущият адрес остава без промяна.';
+        }
+        window.marketToast('Потвърждението на новия email е заявено.');
       }
       if(action==='reset-password')window.marketToast('Изпратен е защитен линк за нова парола.');
       if(action==='signout-all'){
@@ -3391,24 +3401,32 @@
       renderMyAdsPromotions();window.addEventListener('market:listing-promotion-changed',renderMyAdsPromotions);window.addEventListener('storage',ev=>{if(ev.key==='marketListingPromotionsV241')renderMyAdsPromotions()});setInterval(renderMyAdsPromotions,60000);
     }
 
-    // Profile wallet shortcut; appears if paid services are on or user already has granted bonuses.
+    // v2.47 permanent "Промоции и бонуси" row in Profile.
     const profile=document.querySelector('.profile-hub-container');
     if(profile){
-      const summary=M.walletSummary(),bonus=M.getBonusSummary?.()||[];
-      if(M.paidAvailable()||bonus.length){
-        const firstMenu=profile.querySelector('.profile-menu-section .profile-menu-card');
-        if(firstMenu&&!firstMenu.querySelector('[data-wallet-profile-row]')){
-          const a=document.createElement('a');a.className='profile-menu-row';a.href='promote.html';a.dataset.walletProfileRow='';
-          let title='Изкачи / TOP / VIP',text=summary.length?summary.map(x=>x.name+': '+x.count).join(' · '):'Нямаш налични активации';
-          if(!M.paidAvailable()&&bonus.length){
-            const b=bonus[0],end=b.redeemUntil?new Date(b.redeemUntil):null;
-            title='FREE BETA бонус';
-            text=b.remaining+' × '+b.name+(end&&!Number.isNaN(end.getTime())?' · използвай до '+end.toLocaleDateString('bg-BG'):'');
-          }
-          a.innerHTML='<span aria-hidden="true" class="profile-menu-icon">★</span><span class="profile-menu-copy"><strong>'+esc(title)+'</strong><span class="profile-menu-sub">'+esc(text)+'</span></span><span aria-hidden="true" class="profile-menu-chevron">›</span>';
-          firstMenu.appendChild(a);
+      const M=window.MarketMonetization,row=profile.querySelector('[data-profile-promotions-row]'),sub=row?.querySelector('[data-profile-promotions-sub]');
+      const renderProfilePromotionSummary=()=>{
+        if(!row||!sub||!M)return;
+        const bonus=M.getBonusSummary?.()||[];
+        const wallet=M.walletSummary?.()||[];
+        const activeIds=['demo-1','demo-2','demo-3','demo-4'];
+        const active=activeIds.map(id=>M.getActivePromotion?.(id)).filter(Boolean);
+        if(bonus.length){
+          const b=bonus[0],end=b.redeemUntil?new Date(b.redeemUntil):null;
+          sub.textContent=b.remaining+' × '+b.name+(end&&!Number.isNaN(end.getTime())?' · използвай до '+end.toLocaleDateString('bg-BG'):'');
+        }else if(M.paidAvailable?.()&&wallet.length){
+          sub.textContent=wallet.map(x=>x.name+': '+x.count).join(' · ');
+        }else if(active.length){
+          sub.textContent='Имаш '+active.length+' активн'+(active.length===1?'а':'и')+' промоци'+(active.length===1?'я':'и');
+        }else{
+          sub.textContent='Нямаш налични промоции или бонуси';
         }
-      }
+      };
+      renderProfilePromotionSummary();
+      window.addEventListener('market:bonus-changed',renderProfilePromotionSummary);
+      window.addEventListener('market:wallet-changed',renderProfilePromotionSummary);
+      window.addEventListener('market:listing-promotion-changed',renderProfilePromotionSummary);
+      window.addEventListener('storage',renderProfilePromotionSummary);
     }
   })();
 
@@ -3504,6 +3522,72 @@
     if(!M||!id||!titleRow)return;
     const render=()=>{titleRow.querySelector('[data-detail-promo-badge]')?.remove();if(!M.promotionPlacementEnabled?.())return;const state=M.getActivePromotion?.(id);if(!state)return;const badge=document.createElement('span');badge.dataset.detailPromoBadge='';badge.className='badge detail-promo-badge '+(state.kind==='vip'?'badge-vip':'badge-top');badge.textContent=state.kind==='vip'?'VIP':'TOP';titleRow.insertBefore(badge,titleRow.querySelector('[data-share-listing]')||null)};
     render();window.addEventListener('market:listing-promotion-changed',render);setInterval(render,60000);
+  })();
+
+
+  // v2.47 Promotions & bonuses account page.
+  (function profilePromotionsV247(){
+    const root=document.querySelector('[data-promotions-profile-root]');
+    const M=window.MarketMonetization;
+    if(!root||!M)return;
+    const esc=window.Market?.escapeHTML||function(v){return String(v??'').replace(/[&<>"']/g,'')};
+
+    const owned=[...root.querySelectorAll('[data-owned-listing]')].map(x=>({
+      id:x.dataset.listingId||'',
+      title:x.dataset.listingTitle||'Обява'
+    })).filter(x=>x.id);
+
+    const fmtDate=value=>{
+      const d=value?new Date(value):null;
+      return d&&!Number.isNaN(d.getTime())?d.toLocaleDateString('bg-BG'):'';
+    };
+
+    const render=()=>{
+      const available=root.querySelector('[data-available-promotions]');
+      const activeBox=root.querySelector('[data-active-promotions]');
+      const bonus=M.getBonusSummary?.()||[];
+      const wallet=M.paidAvailable?.()?(M.walletSummary?.()||[]):[];
+
+      const availableRows=[];
+      bonus.forEach(b=>{
+        availableRows.push(
+          '<div class="promotion-account-row"><div><strong>'+esc(b.remaining+' × '+b.name)+'</strong><span>FREE BETA бонус'+(b.redeemUntil?' · използвай до '+esc(fmtDate(b.redeemUntil)):'')+'</span></div><a class="mini-btn" href="my-ads.html">Използвай</a></div>'
+        );
+      });
+      wallet.forEach(w=>{
+        availableRows.push(
+          '<div class="promotion-account-row"><div><strong>'+esc(w.count+' × '+w.name)+'</strong><span>Налична активация</span></div><a class="mini-btn" href="my-ads.html">Използвай</a></div>'
+        );
+      });
+
+      if(available){
+        available.innerHTML=availableRows.length
+          ? availableRows.join('')
+          : '<div class="promotion-empty-state"><strong>Нямаш налични промоции или бонуси</strong><span>Когато получиш бонус или имаш закупена активация, ще я виждаш тук.</span></div>';
+      }
+
+      const activeRows=[];
+      owned.forEach(item=>{
+        const state=M.getActivePromotion?.(item.id);
+        if(!state)return;
+        activeRows.push(
+          '<a class="promotion-account-row promotion-active-row" href="my-ads.html"><div><strong>'+esc(item.title)+'</strong><span><b class="'+(state.kind==='vip'?'text-vip':'text-top')+'">'+(state.kind==='vip'?'VIP':'TOP')+'</b>'+(state.expiresAt?' · активен до '+esc(fmtDate(state.expiresAt)):'')+'</span></div><span class="profile-menu-chevron">›</span></a>'
+        );
+      });
+
+      if(activeBox){
+        activeBox.innerHTML=activeRows.length
+          ? activeRows.join('')
+          : '<div class="promotion-empty-state compact"><strong>Няма активни TOP/VIP промоции</strong><span>Активните промоции на твоите обяви ще се показват тук.</span></div>';
+      }
+    };
+
+    render();
+    window.addEventListener('market:bonus-changed',render);
+    window.addEventListener('market:wallet-changed',render);
+    window.addEventListener('market:listing-promotion-changed',render);
+    window.addEventListener('storage',render);
+    setInterval(render,60000);
   })();
 
 })();
