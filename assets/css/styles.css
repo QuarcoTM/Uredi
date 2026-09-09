@@ -4391,3 +4391,36 @@ pre,code{
 [data-featured-listing][hidden]{display:none!important}
 .featured-vip-card{border-color:#efb165}
 .featured-top-card{border-color:#9cc0ee}
+
+
+/* ===== v2.43 simple promotional price display ===== */
+.market-promo-price{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.promo-old-price{order:0;color:#9aa2b0;opacity:.78;font-size:14px;font-weight:600;text-decoration:line-through;text-decoration-thickness:1px}
+.promo-current-price{order:1;color:#101c32;font-size:26px;font-weight:850}
+.promo-validity{margin-top:-4px;margin-bottom:10px;color:var(--muted);font-size:10.5px}
+.checkout-price-pair{display:flex;align-items:baseline;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+.checkout-old-price{color:#9aa2b0;opacity:.78;font-size:13px;font-weight:600;text-decoration:line-through;text-decoration-thickness:1px}
+.post-promo-buy-price{white-space:nowrap}
+.post-promo-old-price{color:#98a1af;opacity:.8;text-decoration:line-through;text-decoration-thickness:1px}
+.post-promo-buy-price strong{color:#17243a;font-weight:850}
+.post-promo-validity{display:block;margin-top:2px;color:var(--muted);font-size:9.5px}
+
+
+/* ===== v2.44 monetization business rules ===== */
+.listing-row.top{border-color:#bfd4ef;box-shadow:0 6px 16px rgba(23,103,217,.045)}
+.ad-promotion-status{display:flex;align-items:center;gap:7px;margin-top:5px;color:#526278;font-size:10.5px;font-weight:700}
+.ad-bump-status{font-weight:650;color:#66758a}
+.overflow-menu-item.is-disabled{color:#8a94a3;background:#f7f8fa;cursor:not-allowed;pointer-events:none}
+.is-promo-blocked{opacity:.72}
+.is-promo-blocked .primary-btn:disabled{cursor:not-allowed;opacity:.65}
+.promo-active-lock{display:grid;gap:3px;margin:12px 0 16px}
+.payment-failed-card h1{margin-top:0}
+.detail-promo-badge{flex:0 0 auto}
+.listing-title-row{flex-wrap:wrap}
+
+/* ===== v2.45 FREE BETA bonus campaign ===== */
+.beta-bonus-card .beta-chip{margin-left:auto}
+.beta-bonus-remaining{font-size:13px;color:#44536a;margin:8px 0}
+.beta-bonus-remaining strong{font-size:20px;color:#17243a}
+.beta-choose-listing{margin-top:14px}
+.post-promo-option em{font-style:normal;font-size:9px;font-weight:900;color:#1767d9}
