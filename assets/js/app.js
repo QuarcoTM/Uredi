@@ -257,8 +257,8 @@
 
   // v2.2: FREE BETA is a real application mode.
   (function applyFreeBeta(){
-    const cfg=window.SITE_CONFIG||{};
-    if(cfg.paidServicesEnabled!==false)return;
+    const cfg=window.MarketMonetization?.getPlatform?.()||window.SITE_CONFIG||{};
+    if(cfg.freeBeta===false && cfg.paidServicesEnabled===true)return;
     document.documentElement.classList.add('free-beta');
     $$('a[href="promote.html"],a[href="checkout.html"]').forEach(a=>a.remove());
     $$('.badge-vip,.badge-top,.promo-badge').forEach(x=>x.remove());
@@ -1939,6 +1939,21 @@
           return;
         }
 
+        const monetization=window.MarketMonetization;
+        const selectedPromotion=window.marketPostAdPromotion?.getSelected?.()||'';
+        if(selectedPromotion && monetization?.paidAvailable?.()){
+          const wallet=monetization.getWallet();
+          if(Number(wallet[selectedPromotion]||0)>0){
+            try{monetization.useCredit(selectedPromotion,'new-ad-'+Date.now())}catch(err){window.marketToast(err.message||'Промоцията не може да се активира.');return}
+          }else{
+            if(!monetization.checkoutAllowed()){window.marketToast('Checkout още не е готов за този режим.');return}
+            safeToLeave=true;
+            localStorage.setItem('marketPendingPublishV241',JSON.stringify({productId:selectedPromotion,createdAt:Date.now()}));
+            location.href='checkout.html?item='+encodeURIComponent(selectedPromotion)+'&context=publish';
+            return;
+          }
+        }
+
         publishing=true;safeToLeave=true;
         publish.dataset.actionBusy='1';
         publish.classList.add('is-publishing');
@@ -3194,6 +3209,200 @@
       b.textContent='';
       b.classList.remove('has-unread');
       b.setAttribute('aria-hidden','true');
+    });
+  })();
+
+
+  // v2.41 monetization: wallet, promote page, checkout and instant promotion during publishing.
+  (function monetizationV241(){
+    const M=window.MarketMonetization;if(!M)return;
+    const esc=window.Market?.escapeHTML||function(v){return String(v??'').replace(/[&<>"']/g,'')};
+    const platform=M.getPlatform();
+
+    function promoPriceHTML(item){
+      const p=M.priceFor(item);
+      return p.onPromo?'<span class="promo-current-price">'+M.money(p.current)+'</span><span class="promo-old-price">'+M.money(p.regular)+'</span>':'<span class="promo-current-price">'+M.money(p.current)+'</span>';
+    }
+    function promoEnd(item){
+      if(!M.priceFor(item).onPromo||!item.promotion?.end)return '';
+      const d=new Date(item.promotion.end);return Number.isNaN(d.getTime())?'':'<div class="promo-validity">Промо цена до '+d.toLocaleString('bg-BG')+'</div>';
+    }
+    function disabledPage(title,text){return '<div class="feature-disabled"><span class="beta-chip">FREE BETA</span><h1>'+title+'</h1><p>'+text+'</p><div class="warning-callout">В момента платформата не приема плащания и няма платено позициониране.</div><a class="primary-btn" href="listings.html">Към обявите</a></div>'}
+
+    // Promote / wallet page.
+    const promoteRoot=document.querySelector('[data-promote-root]');
+    if(promoteRoot){
+      if(!M.paidAvailable()){
+        promoteRoot.innerHTML=disabledPage('Допълнителните услуги още не са активни','Изкачи, TOP, VIP и пакетите са подготвени, но са скрити докато FREE BETA е активна.');
+      }else{
+        const listing=new URLSearchParams(location.search).get('listing')||'';
+        const c=M.getConfig(),wallet=M.getWallet();
+        const walletRows=Object.values(c.products).filter(p=>p.enabled).map(p=>'<div><strong>'+Number(wallet[p.id]||0)+'</strong><span>'+esc(p.name)+'</span></div>').join('');
+        const products=Object.values(c.products).filter(p=>p.enabled).map(p=>{
+          const has=Number(wallet[p.id]||0)>0;
+          const action=listing&&has?'Използвай 1 наличен':listing?'Купи и използвай сега':'Купи';
+          return '<article class="promo-card market-promo-card" data-promo-item="'+p.id+'"><div class="market-promo-head"><h3>'+esc(p.name)+'</h3>'+(M.priceFor(p).onPromo?'<span class="market-promo-badge">ПРОМО</span>':'')+'</div><p>'+esc(p.description||'')+'</p><div class="promo-price market-promo-price">'+promoPriceHTML(p)+'</div>'+promoEnd(p)+'<div class="promo-balance-line">Налични: <strong>'+Number(wallet[p.id]||0)+'</strong></div><button class="primary-btn" data-promote-action="'+p.id+'" data-listing="'+esc(listing)+'">'+action+'</button></article>';
+        }).join('');
+        const packages=c.packages.filter(p=>p.enabled).map(p=>'<article class="promo-card market-promo-card"><div class="market-promo-head"><h3>'+esc(p.name)+'</h3>'+(M.priceFor(p).onPromo?'<span class="market-promo-badge">ПРОМО</span>':'')+'</div><p>'+esc(p.description||'')+'</p><div class="promo-price market-promo-price">'+promoPriceHTML(p)+'</div>'+promoEnd(p)+'<button class="secondary-btn" data-buy-package="'+p.id+'">Купи пакет</button></article>').join('');
+        promoteRoot.innerHTML='<div class="market-promo-page"><h1 class="page-title">Промотирай обява</h1><p class="page-subtitle">Купените активации стоят в профила ти и ги използваш когато поискаш.</p><div class="market-wallet"><div class="market-wallet-title"><strong>Моят баланс</strong><span>Налични активации</span></div><div class="market-wallet-values">'+walletRows+'</div></div><h2>Единични услуги</h2><div class="promotion-grid">'+products+'</div><h2 class="market-section-gap">Пакети</h2><div class="promotion-grid">'+packages+'</div></div>';
+        promoteRoot.addEventListener('click',e=>{
+          const b=e.target.closest('[data-promote-action]');
+          if(b){
+            const productId=b.dataset.promoteAction,listingId=b.dataset.listing||'';const w=M.getWallet();
+            if(listingId&&Number(w[productId]||0)>0){try{M.useCredit(productId,listingId);window.marketToast('Промоцията е активирана.');setTimeout(()=>location.href='my-ads.html?promoted=1',500)}catch(err){window.marketToast(err.message)}return}
+            location.href='checkout.html?item='+encodeURIComponent(productId)+(listingId?'&listing='+encodeURIComponent(listingId):'')+'&context='+(listingId?'listing':'wallet');return;
+          }
+          const p=e.target.closest('[data-buy-package]');if(p)location.href='checkout.html?item='+encodeURIComponent(p.dataset.buyPackage)+'&context=wallet';
+        });
+      }
+    }
+
+    // Checkout: test mode is fully clickable; live mode stays blocked until backend marks it ready.
+    const checkoutRoot=document.querySelector('[data-checkout-root]');
+    if(checkoutRoot){
+      const qs=new URLSearchParams(location.search),itemId=qs.get('item')||'',found=M.findItem(itemId),context=qs.get('context')||'wallet',listing=qs.get('listing')||'';
+      if(!M.paidAvailable())checkoutRoot.innerHTML=disabledPage('Плащанията са изключени','Checkout се активира след изключване на FREE BETA и включване на платените услуги.');
+      else if(!found)checkoutRoot.innerHTML='<div class="feature-disabled"><h1>Невалидна услуга</h1><p>Избраната услуга не е намерена.</p><a class="primary-btn" href="promote.html">Назад</a></div>';
+      else{
+        const p=M.getPlatform(),price=M.priceFor(found.item);
+        const test=p.paymentMode==='test';
+        const can=M.checkoutAllowed();
+        checkoutRoot.innerHTML='<div class="checkout-shell"><div class="checkout-card"><div class="market-promo-head"><h1>'+esc(found.item.name)+'</h1>'+(price.onPromo?'<span class="market-promo-badge">ПРОМО</span>':'')+'</div><p>'+esc(found.item.description||'')+'</p><div class="checkout-total"><span>Общо</span><strong>'+M.money(price.current)+'</strong></div>'+(price.onPromo?'<div class="checkout-old">Редовна цена: '+M.money(price.regular)+'</div>':'')+(test?'<div class="admin-info-box public-test-box"><strong>ТЕСТОВО ПЛАЩАНЕ</strong><span>Няма да бъдат взети истински пари. Това проверява целия поток до добавяне на бонуса.</span></div>':'')+(!can?'<div class="warning-callout">Реалните плащания още не са свързани с платежен оператор.</div>':'')+'<button class="primary-btn checkout-pay" data-checkout-pay '+(can?'':'disabled')+'>'+(test?'Завърши тестово плащане':'Плати')+'</button><a class="secondary-btn checkout-back" href="'+(listing?'promote.html?listing='+encodeURIComponent(listing):'promote.html')+'">Отказ</a></div></div>';
+        checkoutRoot.querySelector('[data-checkout-pay]')?.addEventListener('click',()=>{
+          try{
+            M.completePurchase(itemId,{context});
+            const pending=localStorage.getItem('marketPendingPublishV241');
+            if(context==='publish'&&pending){
+              const data=JSON.parse(pending);M.useCredit(data.productId,'new-ad-'+Date.now());localStorage.removeItem('marketPendingPublishV241');localStorage.setItem('demoAdPublished','1');location.href='my-ads.html?published=1&promoted=1';return;
+            }
+            if(context==='listing'&&listing&&found.type==='product'){M.useCredit(found.item.id,listing);location.href='my-ads.html?promoted=1';return;}
+            location.href='promote.html?purchased=1';
+          }catch(err){window.marketToast(err.message||'Плащането не може да бъде завършено.');}
+        });
+      }
+    }
+
+    // Final step of publishing: free by default; optional promotion can be bought/used immediately.
+    const post=document.querySelector('.post-layout');
+    if(post&&M.paidAvailable()){
+      const sections=[...post.querySelectorAll('.form-section')],last=sections[sections.length-1],panelBody=last?.querySelector('.panel-body');
+      if(panelBody&&!panelBody.querySelector('[data-post-promotion]')){
+        const c=M.getConfig(),wallet=M.getWallet(),ids=['bump','top7','vip7'].filter(id=>c.products[id]?.enabled);
+        const box=document.createElement('div');box.className='post-promotion-box';box.dataset.postPromotion='';
+        box.innerHTML='<div class="post-promo-title"><strong>Промотирай обявата</strong><span>По желание. Самото публикуване остава безплатно.</span></div><label class="post-promo-option is-selected"><input type="radio" name="post-promotion" value="" checked><span><b>Без промотиране</b><small>0,00 €</small></span></label>'+ids.map(id=>{const p=c.products[id],count=Number(wallet[id]||0),price=M.priceFor(p);return '<label class="post-promo-option"><input type="radio" name="post-promotion" value="'+id+'"><span><b>'+esc(p.name)+'</b><small>'+(count?'Използвай 1 от наличните '+count:'Купи за '+M.money(price.current)+' и използвай веднага')+'</small></span>'+(price.onPromo?'<em>ПРОМО</em>':'')+'</label>'}).join('')+'<a class="post-promo-packages" href="promote.html">Виж пакети и всички налични услуги</a>';
+        const callout=panelBody.querySelector('.success-callout');panelBody.insertBefore(box,callout||panelBody.firstChild);
+        const freeNote=panelBody.querySelector('.success-callout');if(freeNote)freeNote.innerHTML='<strong>Публикуването на обявата е безплатно.</strong> Плащаш само ако избереш допълнителна услуга.';
+        const publish=document.querySelector('[data-publish]');
+        const selected=()=>box.querySelector('input[name="post-promotion"]:checked')?.value||'';
+        window.marketPostAdPromotion={getSelected:selected};
+        box.addEventListener('change',()=>{box.querySelectorAll('.post-promo-option').forEach(x=>x.classList.toggle('is-selected',x.querySelector('input')?.checked));const id=selected();if(publish)publish.textContent=id?(Number(M.getWallet()[id]||0)>0?'Публикувай и използвай '+(c.products[id]?.shortName||'бонус'):'Публикувай и плати '+M.money(M.priceFor(c.products[id]).current)):'Публикувай безплатно';});
+      }
+    }
+
+    // Existing ads: add Promote action only when paid services are active.
+    if(M.paidAvailable()){
+      document.querySelectorAll('[data-tab-panel="active"] .ad-manage').forEach((row,i)=>{
+        const menu=row.querySelector('[data-overflow-menu]');if(!menu||menu.querySelector('[data-promote-existing]'))return;
+        const a=document.createElement('a');a.className='overflow-menu-item';a.href='promote.html?listing='+encodeURIComponent(row.dataset.listingId||('demo-'+(i+1)));a.dataset.promoteExisting='';a.textContent='Промотирай';menu.insertBefore(a,menu.firstChild);
+      });
+    }
+
+    // Profile wallet shortcut; appears if paid services are on or user already has granted bonuses.
+    const profile=document.querySelector('.profile-hub-container');
+    if(profile){
+      const summary=M.walletSummary();
+      if(M.paidAvailable()||summary.length){
+        const firstMenu=profile.querySelector('.profile-menu-section .profile-menu-card');
+        if(firstMenu&&!firstMenu.querySelector('[data-wallet-profile-row]')){
+          const a=document.createElement('a');a.className='profile-menu-row';a.href='promote.html';a.dataset.walletProfileRow='';
+          const text=summary.length?summary.map(x=>x.name+': '+x.count).join(' · '):'Нямаш налични активации';
+          a.innerHTML='<span aria-hidden="true" class="profile-menu-icon">★</span><span class="profile-menu-copy"><strong>Изкачи / TOP / VIP</strong><span class="profile-menu-sub">'+esc(text)+'</span></span><span aria-hidden="true" class="profile-menu-chevron">›</span>';
+          firstMenu.appendChild(a);
+        }
+      }
+    }
+  })();
+
+
+  // v2.42 "Избрани обяви": VIP only -> if none TOP only -> if none latest bumped.
+  (function featuredPromotionsV242(){
+    const section=document.querySelector('[data-featured-promo-section]');
+    const grid=document.querySelector('[data-featured-promo-grid]');
+    const M=window.MarketMonetization;
+    if(!section||!grid)return;
+
+    const cards=[...grid.querySelectorAll('[data-featured-listing][data-listing-id]')];
+    const subtitle=section.querySelector('[data-featured-promo-subtitle]');
+
+    const clearPromoBadge=card=>{
+      card.querySelector('[data-featured-tier-badge]')?.remove();
+      card.classList.remove('featured-vip-card','featured-top-card');
+    };
+
+    const setBadge=(card,tier)=>{
+      clearPromoBadge(card);
+      if(tier==='bump')return; // Изкачи has no badge by design.
+      const badge=document.createElement('span');
+      badge.dataset.featuredTierBadge='';
+      badge.className='promo-badge badge '+(tier==='vip'?'badge-vip':'badge-top');
+      badge.textContent=tier==='vip'?'VIP':'TOP';
+      card.appendChild(badge);
+      if(tier==='vip')card.classList.add('featured-vip-card');
+      if(tier==='top')card.classList.add('featured-top-card');
+    };
+
+    const hide=()=>{
+      cards.forEach(card=>{card.hidden=true;clearPromoBadge(card)});
+      section.hidden=true;
+    };
+
+    const render=()=>{
+      // During FREE BETA paid positioning is not public.
+      if(!M?.paidAvailable?.()){
+        hide();
+        return;
+      }
+
+      const selection=M.getFeaturedPromotionSelection?.()||{tier:null,listingIds:[]};
+      if(!selection.tier||!selection.listingIds.length){
+        hide();
+        return;
+      }
+
+      const byId=new Map(cards.map(card=>[card.dataset.listingId,card]));
+      const ordered=selection.listingIds.map(id=>byId.get(id)).filter(Boolean).slice(0,4);
+
+      // Important: never fall down to a lower tier just because this static
+      // prototype does not contain a card for a promoted listing.
+      if(!ordered.length){
+        hide();
+        return;
+      }
+
+      cards.forEach(card=>{
+        card.hidden=!ordered.includes(card);
+        clearPromoBadge(card);
+      });
+
+      ordered.forEach(card=>{
+        setBadge(card,selection.tier);
+        grid.appendChild(card);
+      });
+
+      if(subtitle){
+        subtitle.textContent=
+          selection.tier==='vip'?'VIP обяви':
+          selection.tier==='top'?'TOP обяви':
+          'Изкачени обяви';
+      }
+
+      section.hidden=false;
+    };
+
+    render();
+    window.addEventListener('market:listing-promotion-changed',render);
+    window.addEventListener('storage',e=>{
+      if(e.key==='marketListingPromotionsV241')render();
     });
   })();
 

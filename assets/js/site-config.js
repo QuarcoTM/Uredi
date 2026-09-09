@@ -6,6 +6,8 @@ window.SITE_CONFIG={
   currency:'€',
   freeBeta:true,
   paidServicesEnabled:false,
+  paymentMode:'test',
+  livePaymentsReady:false,
   emailVerificationRequired:true,
   adLifetimeDays:60,
   priceHistoryEnabled:true,
