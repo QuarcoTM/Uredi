@@ -80,16 +80,6 @@ document.querySelectorAll('table').forEach(table=>{
   }
 })();
 
-// v2.2 FREE BETA safeguard.
-(function(){
-  const t=document.querySelector('[data-paid-services-toggle]');
-  if(!t)return;
-  t.checked=false;
-  t.addEventListener('change',()=>{
-    t.checked=false;
-    adminToastV230('Платените услуги остават изключени в FREE BETA.');
-  });
-})();
 
 
 // v2.3: shared Admin navigation adds the sold archive without editing every HTML page.
@@ -174,4 +164,71 @@ document.querySelectorAll('table').forEach(table=>{
     localStorage.removeItem(key);render();
   });
   render();
+})();
+
+
+// v2.41: platform mode, prices/promotions/packages and manual bonus wallet.
+(function monetizationAdminV241(){
+  const M=window.MarketMonetization;if(!M)return;
+  const toast=window.adminToastV230||function(m){alert(m)};
+  const esc=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const dt=v=>{if(!v)return '';const d=new Date(v);if(Number.isNaN(d.getTime()))return '';const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes())};
+  const iso=v=>v?new Date(v).toISOString():null;
+
+  function renderPlatform(){
+    const p=M.getPlatform(),free=document.querySelector('[data-free-beta-toggle]'),paid=document.querySelector('[data-paid-services-toggle]'),mode=document.querySelector('[data-payment-mode]'),status=document.querySelector('[data-platform-mode]'),hint=document.querySelector('[data-paid-services-hint]'),live=document.querySelector('[data-live-payment-status]');
+    if(free)free.checked=p.freeBeta;if(paid){paid.checked=p.paidServicesEnabled;paid.disabled=p.freeBeta||(p.paymentMode==='live'&&!p.livePaymentsReady)}if(mode)mode.value=p.paymentMode;
+    if(status){status.textContent=p.freeBeta?'FREE BETA':p.paidServicesEnabled?(p.paymentMode==='test'?'ПЛАТЕНИ · TEST':'ПЛАТЕНИ · LIVE'):'ПЛАТЕНИ УСЛУГИ OFF';status.className=p.paidServicesEnabled?'admin-status-on':'admin-status-off'}
+    if(hint)hint.textContent=p.freeBeta?'Първо изключи FREE BETA.':p.paidServicesEnabled?'Включени. Потребителите виждат цените и checkout.':'Изключени. Потребителите не могат да плащат.';
+    if(live)live.value=p.livePaymentsReady?'Готови':'Не е свързан платежен оператор';
+  }
+  document.querySelector('[data-free-beta-toggle]')?.addEventListener('change',e=>{
+    if(!e.target.checked&&!confirm('Изключване на FREE BETA. Публикуването остава безплатно, но ще можеш да включиш платените допълнителни услуги. Продължи?')){e.target.checked=true;return}
+    M.setPlatform({freeBeta:e.target.checked});renderPlatform();toast(e.target.checked?'FREE BETA е включена.':'FREE BETA е изключена.');
+  });
+  document.querySelector('[data-paid-services-toggle]')?.addEventListener('change',e=>{
+    const p=M.getPlatform();
+    if(e.target.checked){
+      if(p.freeBeta){e.target.checked=false;toast('Първо изключи FREE BETA.');return}
+      if(p.paymentMode==='live'&&!p.livePaymentsReady){e.target.checked=false;toast('Реалните плащания още не са свързани. Използвай тестов режим.');return}
+      const msg=p.paymentMode==='test'?'Да включа ли платените услуги в ТЕСТОВ режим? Няма да се взимат истински пари.':'Да включа ли РЕАЛНИТЕ плащания?';
+      if(!confirm(msg)){e.target.checked=false;return}
+    }
+    M.setPlatform({paidServicesEnabled:e.target.checked});renderPlatform();toast(e.target.checked?'Платените услуги са включени.':'Платените услуги са изключени.');
+  });
+  document.querySelector('[data-payment-mode]')?.addEventListener('change',e=>{
+    if(e.target.value==='live'&&!M.getPlatform().livePaymentsReady){M.setPlatform({paymentMode:'live',paidServicesEnabled:false});renderPlatform();toast('LIVE режимът е избран, но плащанията остават OFF до свързване на платежен оператор.');return}
+    M.setPlatform({paymentMode:e.target.value,paidServicesEnabled:false});renderPlatform();toast('Режимът е сменен. Включи платените услуги отново след проверка.');
+  });
+  renderPlatform();
+
+  function promoEditor(item,type){
+    const p=item.promotion||{};return '<article class="monetization-editor" data-monetization-item="'+esc(item.id)+'" data-item-type="'+type+'"><div class="monetization-editor-head"><div><h3>'+esc(item.name)+'</h3><p>'+esc(item.description||'')+'</p></div><label class="admin-switch-inline"><input data-item-enabled type="checkbox" '+(item.enabled?'checked':'')+'> Активно</label></div><div class="monetization-grid"><label><span>Редовна цена (€)</span><input data-regular type="number" min="0" step="0.01" value="'+Number(item.regularPrice||0).toFixed(2)+'"></label><label><span>Промо цена (€)</span><input data-promo-price type="number" min="0" step="0.01" value="'+(p.price??'')+'" placeholder="няма"></label><label><span>Начало</span><input data-promo-start type="datetime-local" value="'+dt(p.start)+'"></label><label><span>Край</span><input data-promo-end type="datetime-local" value="'+dt(p.end)+'"></label><label><span>За кого</span><select data-promo-audience><option value="all" '+((p.audience||'all')==='all'?'selected':'')+'>Всички</option><option value="private" '+(p.audience==='private'?'selected':'')+'>Частни лица</option><option value="dealer" '+(p.audience==='dealer'?'selected':'')+'>Търговци</option></select></label><label><span>Край след X покупки</span><input data-promo-limit type="number" min="1" step="1" value="'+(p.maxSales??'')+'" placeholder="без лимит"></label></div><div class="monetization-actions"><label class="admin-switch-inline"><input data-promo-enabled type="checkbox" '+(p.enabled?'checked':'')+'> Промоцията е включена</label><span class="muted-admin">Покупки на промо: '+Number(p.sales||0)+(p.maxSales?' / '+Number(p.maxSales):'')+'</span><button class="btn primary" data-save-monetization type="button">Запази</button><button class="btn" data-stop-promo type="button">Спри промоцията</button>'+(type==='package'?'<button class="btn danger" data-delete-package type="button">Изтрий пакет</button>':'')+'</div></article>';
+  }
+  function renderEditors(){
+    const c=M.getConfig(),services=document.querySelector('[data-service-editor]'),packages=document.querySelector('[data-package-editor]');
+    if(services)services.innerHTML=Object.values(c.products).map(p=>promoEditor(p,'product')).join('');
+    if(packages)packages.innerHTML=c.packages.length?c.packages.map(p=>promoEditor(p,'package')).join(''):'<div class="empty-admin-state">Няма пакети.</div>';
+    const select=document.querySelector('[data-wallet-product]');if(select)select.innerHTML=Object.values(c.products).map(p=>'<option value="'+p.id+'">'+esc(p.name)+'</option>').join('');
+    renderWallet();renderHistory();
+  }
+  function mutable(c,type,id){return type==='product'?c.products[id]:c.packages.find(x=>x.id===id)}
+  document.addEventListener('click',e=>{
+    const save=e.target.closest('[data-save-monetization]');if(save){
+      const card=save.closest('[data-monetization-item]'),c=M.getConfig(),item=mutable(c,card.dataset.itemType,card.dataset.monetizationItem);if(!item)return;
+      const q=s=>card.querySelector(s);item.enabled=q('[data-item-enabled]').checked;item.regularPrice=Number(q('[data-regular]').value||0);item.promotion=item.promotion||{};item.promotion.enabled=q('[data-promo-enabled]').checked;item.promotion.price=q('[data-promo-price]').value===''?null:Number(q('[data-promo-price]').value);item.promotion.start=iso(q('[data-promo-start]').value);item.promotion.end=iso(q('[data-promo-end]').value);item.promotion.audience=q('[data-promo-audience]').value;item.promotion.maxSales=q('[data-promo-limit]').value===''?null:Number(q('[data-promo-limit]').value);item.promotion.sales=Number(item.promotion.sales||0);
+      if(item.promotion.enabled&&item.promotion.price===null){toast('Въведи промо цена.');return}if(item.promotion.start&&item.promotion.end&&new Date(item.promotion.start)>=new Date(item.promotion.end)){toast('Краят трябва да е след началото.');return}
+      M.saveConfig(c);toast('Цената и промоцията са запазени.');renderEditors();return;
+    }
+    const stop=e.target.closest('[data-stop-promo]');if(stop){const card=stop.closest('[data-monetization-item]'),c=M.getConfig(),item=mutable(c,card.dataset.itemType,card.dataset.monetizationItem);item.promotion.enabled=false;M.saveConfig(c);renderEditors();toast('Промоцията е спряна.');return}
+    const del=e.target.closest('[data-delete-package]');if(del){if(!confirm('Да изтрия ли този пакет?'))return;const card=del.closest('[data-monetization-item]'),c=M.getConfig();c.packages=c.packages.filter(x=>x.id!==card.dataset.monetizationItem);M.saveConfig(c);renderEditors();return}
+    if(e.target.closest('[data-add-package]')){
+      const name=prompt('Име на пакета, например: 10 × TOP · 7 дни');if(!name)return;const c=M.getConfig(),ids=Object.keys(c.products),productId=prompt('Кредит: '+ids.join(', '),'top7');if(!c.products[productId]){toast('Невалиден кредит.');return}const qty=Number(prompt('Брой активации','10'));if(!Number.isInteger(qty)||qty<1){toast('Невалиден брой.');return}const price=Number(prompt('Редовна цена (€)',String((c.products[productId].regularPrice*qty).toFixed(2))));if(!Number.isFinite(price)||price<0){toast('Невалидна цена.');return}c.packages.push({id:'pack-'+Date.now(),name,creditProductId:productId,qty,regularPrice:price,enabled:true,description:qty+' активации, които се използват когато потребителят поиска.',promotion:{enabled:false,price:null,start:null,end:null,audience:'all',maxSales:null,sales:0}});M.saveConfig(c);renderEditors();toast('Пакетът е добавен.');
+    }
+  });
+  function renderWallet(){const id=(document.querySelector('[data-wallet-user]')?.value||'demo-user').trim(),w=M.getWallet(id),c=M.getConfig(),box=document.querySelector('[data-wallet-preview]');if(box)box.innerHTML=Object.values(c.products).map(p=>'<div><strong>'+Number(w[p.id]||0)+'</strong><span>'+esc(p.name)+'</span></div>').join('')}
+  function renderHistory(){const box=document.querySelector('[data-promotion-history]');if(!box)return;const c=M.getConfig(),h=M.getHistory().slice(0,30);box.innerHTML=h.length?h.map(x=>'<div class="activity"><strong>'+esc(x.userId)+' · '+esc(c.products[x.productId]?.name||x.productId)+' · '+(x.qty>0?'+':'')+x.qty+'</strong><span>'+new Date(x.at).toLocaleString('bg-BG')+' · '+esc(x.reason||x.source||'')+'</span></div>').join(''):'<div class="empty-admin-state">Няма операции.</div>'}
+  document.querySelector('[data-wallet-user]')?.addEventListener('input',renderWallet);
+  document.querySelector('[data-wallet-apply]')?.addEventListener('click',()=>{const id=(document.querySelector('[data-wallet-user]').value||'demo-user').trim(),product=document.querySelector('[data-wallet-product]').value,qty=Number(document.querySelector('[data-wallet-qty]').value),reason=document.querySelector('[data-wallet-reason]').value.trim();try{M.adjustWallet(id,product,qty,reason||'Ръчна корекция от админ','admin');renderWallet();renderHistory();toast('Балансът е променен.')}catch(err){toast(err.message)}});
+  if(document.querySelector('[data-service-editor]'))renderEditors();
 })();
