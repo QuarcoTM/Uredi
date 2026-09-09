@@ -6,14 +6,25 @@
   const PURCHASES_KEY='marketPromotionPurchasesV241';
   const LISTING_PROMOS_KEY='marketListingPromotionsV241';
   const CURRENT_USER_KEY='marketCurrentUserV241';
+  const BONUS_GRANTS_KEY='marketBetaBonusGrantsV245';
 
   const DEFAULTS={
-    version:'2.41',
+    version:'2.45',
     freeBeta:true,
     paidServicesEnabled:false,
     paymentMode:'test',
     livePaymentsReady:false,
     currency:'EUR',
+    bonusCampaign:{
+      id:'early-500-top7',
+      enabled:true,
+      title:'Бонус за първите 500',
+      maxVerifiedUsers:500,
+      creditProductId:'top7',
+      qty:1,
+      redeemUntil:'2026-12-31T23:59:59+02:00',
+      requiresVerifiedEmail:true
+    },
     products:{
       bump:{id:'bump',kind:'bump',name:'Изкачи',shortName:'Изкачи',durationDays:0,regularPrice:1.99,enabled:true,description:'Премества обявата най-горе сред обикновените обяви. В „Избрани обяви“ влиза само ако няма активни VIP или TOP.',promotion:{enabled:false,price:null,start:null,end:null,audience:'all',maxSales:null,sales:0}},
       top7:{id:'top7',kind:'top',name:'TOP · 7 дни',shortName:'TOP',durationDays:7,regularPrice:4.99,enabled:true,description:'Обявата стои пред нормалните обяви с TOP badge за 7 дни. В „Избрани обяви“ се показва само ако няма активни VIP.',promotion:{enabled:false,price:null,start:null,end:null,audience:'all',maxSales:null,sales:0}},
@@ -41,6 +52,10 @@
       c.products[k].promotion=mergePromo(c.products[k].promotion,(DEFAULTS.products[k]||{}).promotion);
     });
     c.packages=Array.isArray(config?.packages)?config.packages.map(p=>Object.assign({},p,{promotion:mergePromo(p.promotion)})):clone(DEFAULTS.packages);
+    c.bonusCampaign=Object.assign({},clone(DEFAULTS.bonusCampaign),(config&&config.bonusCampaign)||{});
+    c.bonusCampaign.enabled=!!c.bonusCampaign.enabled;
+    c.bonusCampaign.maxVerifiedUsers=Math.max(1,Number(c.bonusCampaign.maxVerifiedUsers||500));
+    c.bonusCampaign.qty=Math.max(1,Number(c.bonusCampaign.qty||1));
     c.freeBeta=c.freeBeta!==false;
     c.paidServicesEnabled=!!c.paidServicesEnabled;
     c.paymentMode=c.paymentMode==='live'?'live':'test';
@@ -72,6 +87,7 @@
     Object.assign(c,patch||{});
     if(c.freeBeta)c.paidServicesEnabled=false;
     if(c.paymentMode==='live'&&!c.livePaymentsReady)c.paidServicesEnabled=false;
+    if(c.paidServicesEnabled && validatePaidSetup(c).length)c.paidServicesEnabled=false;
     return saveConfig(c);
   }
   function getPlatform(){
@@ -131,69 +147,242 @@
   function completePurchase(itemId,opts){
     opts=opts||{};if(!paidAvailable())throw new Error('Платените услуги не са активни.');if(!checkoutAllowed())throw new Error('Checkout не е готов за този режим.');
     const found=findItem(itemId);if(!found||!found.item.enabled)throw new Error('Офертата не е активна.');
+    if(opts.listingId && found.type==='product'){
+      const allowed=canApplyPromotion(opts.listingId,found.item.id);
+      if(!allowed.ok)throw new Error(allowed.message);
+    }
     const user=getCurrentUser(),pr=priceFor(found.item,user.type),productId=found.type==='product'?found.item.id:found.item.creditProductId,qty=found.type==='product'?1:Number(found.item.qty||0);
     adjustWallet(opts.userId||user.id,productId,qty,'Покупка: '+found.item.name,'purchase');
-    const purchases=getPurchases();purchases.unshift({id:'pay_'+Date.now(),userId:opts.userId||user.id,itemId,productId,qty,amount:pr.current,regularAmount:pr.regular,onPromo:pr.onPromo,mode:getPlatform().paymentMode,context:opts.context||'wallet',at:new Date().toISOString()});write(PURCHASES_KEY,purchases.slice(0,1000));
+    const purchases=getPurchases();purchases.unshift({id:'pay_'+Date.now(),userId:opts.userId||user.id,itemId,productId,qty,amount:pr.current,regularAmount:pr.regular,onPromo:pr.onPromo,mode:getPlatform().paymentMode,context:opts.context||'wallet',listingId:opts.listingId||null,at:new Date().toISOString()});write(PURCHASES_KEY,purchases.slice(0,1000));
     if(pr.onPromo){found.item.promotion.sales=Number(found.item.promotion.sales||0)+1;saveConfig(found.config);}
     return purchases[0];
   }
 
   function getListingPromotions(){return read(LISTING_PROMOS_KEY,{});}
 
-  function getFeaturedPromotionSelection(now){
-    const all=getListingPromotions();
+
+  function getBonusCampaign(){return Object.assign({},getConfig().bonusCampaign||{});}
+
+  function getBonusGrants(){return read(BONUS_GRANTS_KEY,{});}
+
+  function getBonusGrant(userId){
+    const id=String(userId||getCurrentUser().id||'').trim();
+    return getBonusGrants()[id]||null;
+  }
+
+  function bonusRedeemOpen(campaign,now){
+    const c=campaign||getBonusCampaign();
+    if(!c.enabled)return false;
+    const end=parseDate(c.redeemUntil);
+    const ts=now instanceof Date?now:new Date(now||Date.now());
+    return !end || ts<=end;
+  }
+
+  function getBonusSummary(userId,now){
+    const grant=getBonusGrant(userId),campaign=getBonusCampaign();
+    if(!grant||grant.campaignId!==campaign.id)return [];
+    const remaining=Math.max(0,Number(grant.remaining||0));
+    if(!remaining||!bonusRedeemOpen(campaign,now))return [];
+    const product=getConfig().products?.[grant.productId];
+    if(!product||!product.enabled)return [];
+    return [{
+      campaignId:campaign.id,
+      campaignTitle:campaign.title,
+      productId:grant.productId,
+      name:product.name,
+      shortName:product.shortName,
+      remaining,
+      redeemUntil:grant.redeemUntil||campaign.redeemUntil,
+      verifiedRegistrationOrder:grant.verifiedRegistrationOrder
+    }];
+  }
+
+  function grantEarlyBetaBonus(userId,verifiedRegistrationOrder,verifiedEmail){
+    const c=getConfig(),campaign=c.bonusCampaign||{},id=String(userId||'').trim();
+    const order=Number(verifiedRegistrationOrder);
+    if(!id)return {granted:false,reason:'missing-user'};
+    if(!campaign.enabled)return {granted:false,reason:'campaign-off'};
+    if(campaign.requiresVerifiedEmail&&verifiedEmail!==true)return {granted:false,reason:'email-not-verified'};
+    if(!Number.isInteger(order)||order<1||order>Number(campaign.maxVerifiedUsers||500))return {granted:false,reason:'not-in-first-group'};
+    if(!bonusRedeemOpen(campaign))return {granted:false,reason:'campaign-expired'};
+    if(!c.products?.[campaign.creditProductId])return {granted:false,reason:'invalid-product'};
+
+    const all=getBonusGrants();
+    if(all[id]?.campaignId===campaign.id)return {granted:false,reason:'already-granted',grant:all[id]};
+
+    // Local prototype duplicate-order guard. Production must enforce this globally in the DB.
+    const duplicate=Object.values(all).find(g=>g?.campaignId===campaign.id&&Number(g.verifiedRegistrationOrder)===order);
+    if(duplicate)return {granted:false,reason:'registration-order-used'};
+
+    const grant={
+      campaignId:campaign.id,
+      userId:id,
+      productId:campaign.creditProductId,
+      qty:Number(campaign.qty||1),
+      remaining:Number(campaign.qty||1),
+      verifiedRegistrationOrder:order,
+      grantedAt:new Date().toISOString(),
+      redeemUntil:campaign.redeemUntil||null
+    };
+    all[id]=grant;write(BONUS_GRANTS_KEY,all);
+    historyPush({userId:id,productId:grant.productId,qty:grant.qty,reason:'FREE BETA бонус · първите '+Number(campaign.maxVerifiedUsers||500)+' потвърдени регистрации',source:'beta-bonus',balanceAfter:grant.remaining});
+    window.dispatchEvent(new CustomEvent('market:bonus-changed',{detail:{userId:id,grant}}));
+    return {granted:true,grant};
+  }
+
+  function useBonus(productId,listingId,userId){
+    const id=String(userId||getCurrentUser().id||'').trim(),campaign=getBonusCampaign(),all=getBonusGrants(),grant=all[id];
+    if(!grant||grant.campaignId!==campaign.id||grant.productId!==productId)throw new Error('Нямаш такъв наличен бонус.');
+    if(!bonusRedeemOpen(campaign))throw new Error('Срокът за използване на бонуса е изтекъл.');
+    if(Number(grant.remaining||0)<1)throw new Error('Бонусът вече е използван.');
+    const allowed=canApplyPromotion(listingId,productId);
+    if(!allowed.ok)throw new Error(allowed.message);
+
+    const before=Number(grant.remaining||0);
+    grant.remaining=before-1;all[id]=grant;write(BONUS_GRANTS_KEY,all);
+    try{
+      const record=applyPromotion(listingId,productId);
+      historyPush({userId:id,productId,qty:-1,reason:'Използван FREE BETA бонус за обява '+String(listingId||''),source:'beta-bonus-use',balanceAfter:grant.remaining});
+      window.dispatchEvent(new CustomEvent('market:bonus-changed',{detail:{userId:id,grant}}));
+      return record;
+    }catch(err){
+      grant.remaining=before;all[id]=grant;write(BONUS_GRANTS_KEY,all);
+      throw err;
+    }
+  }
+
+  function bonusPromotionsAvailable(userId){return getBonusSummary(userId).length>0;}
+
+  function promotionPlacementEnabled(){
+    if(paidAvailable())return true;
+    const all=getListingPromotions(),now=Date.now();
+    return Object.values(all).some(r=>recordActiveTimed(r,now)||(r?.kind==='bump'&&!!parseDate(r.bumpedAt)));
+  }
+
+  function promotionAccessAvailable(userId){
+    return paidAvailable()||bonusPromotionsAvailable(userId)||promotionPlacementEnabled();
+  }
+
+  function validatePaidSetup(config){
+    const c=config||getConfig(),issues=[];
+    const products=Object.values(c.products||{}).filter(p=>p&&p.enabled);
+    if(!products.length)issues.push('Няма включена платена услуга.');
+    products.forEach(p=>{
+      if(!Number.isFinite(Number(p.regularPrice))||Number(p.regularPrice)<0)issues.push('Невалидна редовна цена за '+(p.name||p.id)+'.');
+      if((p.kind==='top'||p.kind==='vip')&&Number(p.durationDays||0)<=0)issues.push('Липсва валиден срок за '+(p.name||p.id)+'.');
+      const pr=p.promotion||{};
+      if(pr.enabled){
+        if(pr.price===null||pr.price===''||!Number.isFinite(Number(pr.price))||Number(pr.price)<0)issues.push('Невалидна промо цена за '+(p.name||p.id)+'.');
+        const s=parseDate(pr.start),e=parseDate(pr.end);
+        if(s&&e&&s>=e)issues.push('Краят на промоцията трябва да е след началото за '+(p.name||p.id)+'.');
+      }
+    });
+    (c.packages||[]).filter(p=>p&&p.enabled).forEach(p=>{
+      if(!c.products?.[p.creditProductId])issues.push('Пакетът '+(p.name||p.id)+' сочи към липсваща услуга.');
+      if(!Number.isInteger(Number(p.qty))||Number(p.qty)<1)issues.push('Невалиден брой активации в '+(p.name||p.id)+'.');
+      if(!Number.isFinite(Number(p.regularPrice))||Number(p.regularPrice)<0)issues.push('Невалидна цена на '+(p.name||p.id)+'.');
+      const pr=p.promotion||{};
+      if(pr.enabled){
+        if(pr.price===null||pr.price===''||!Number.isFinite(Number(pr.price))||Number(pr.price)<0)issues.push('Невалидна промо цена за '+(p.name||p.id)+'.');
+        const s=parseDate(pr.start),e=parseDate(pr.end);
+        if(s&&e&&s>=e)issues.push('Краят на промоцията трябва да е след началото за '+(p.name||p.id)+'.');
+      }
+    });
+    if(c.paymentMode==='live'&&!c.livePaymentsReady)issues.push('LIVE плащанията не са свързани.');
+    return [...new Set(issues)];
+  }
+
+  function recordActiveTimed(record,now){
+    if(!record||(record.kind!=='top'&&record.kind!=='vip'))return false;
     const ts=now instanceof Date?now.getTime():Number(now||Date.now());
+    const end=parseDate(record.expiresAt);
+    return !end || end.getTime()>ts;
+  }
+
+  function getActivePromotion(listingId,now){
+    const id=String(listingId||''),record=getListingPromotions()[id];
+    if(!recordActiveTimed(record,now))return null;
+    return {listingId:id,active:true,kind:record.kind,productId:record.productId||null,startedAt:record.startedAt||null,expiresAt:record.expiresAt||null};
+  }
+
+  function getListingPromotionState(listingId,now){
+    const id=String(listingId||''),record=getListingPromotions()[id]||null;
+    const active=getActivePromotion(id,now);
+    if(active)return active;
+    const bumpedAt=record?.kind==='bump'&&parseDate(record.bumpedAt)?record.bumpedAt:null;
+    return {listingId:id,active:false,kind:bumpedAt?'bump':null,productId:bumpedAt?(record.productId||'bump'):null,bumpedAt,startedAt:bumpedAt?(record.startedAt||bumpedAt):null,expiresAt:null};
+  }
+
+  function canApplyPromotion(listingId,productId,now){
+    const c=getConfig(),product=c.products?.[productId];
+    if(!product||!product.enabled)return {ok:false,message:'Тази услуга не е активна.'};
+    const id=String(listingId||'').trim();
+    if(!id)return {ok:false,message:'Не е избрана обява.'};
+    const active=getActivePromotion(id,now);
+    if(active){
+      const name=active.kind==='vip'?'VIP':'TOP',end=parseDate(active.expiresAt);
+      const until=end?' до '+end.toLocaleDateString('bg-BG'):'';
+      return {ok:false,active,message:'Обявата вече има активен '+name+until+'. Изчакай да изтече, преди да активираш друга промоция.'};
+    }
+    return {ok:true,active:null};
+  }
+
+  function getFeaturedPromotionSelection(now){
+    const all=getListingPromotions(),ts=now instanceof Date?now.getTime():Number(now||Date.now());
     const entries=Object.entries(all).map(([listingId,record])=>({listingId,record:record||{}}));
-
-    const timedActive=(entry,kind)=>{
-      const r=entry.record;
-      if(r.kind!==kind)return false;
-      if(!r.expiresAt)return true;
-      const end=parseDate(r.expiresAt);
-      return !!end && end.getTime()>=ts;
-    };
-    const sortStarted=(a,b)=>{
-      const av=parseDate(a.record.startedAt)?.getTime()||0;
-      const bv=parseDate(b.record.startedAt)?.getTime()||0;
-      return bv-av;
-    };
-    const sortBumped=(a,b)=>{
-      const av=parseDate(a.record.bumpedAt)?.getTime()||0;
-      const bv=parseDate(b.record.bumpedAt)?.getTime()||0;
-      return bv-av;
-    };
-
-    const vip=entries.filter(x=>timedActive(x,'vip')).sort(sortStarted);
+    const sortStarted=(a,b)=>(parseDate(b.record.startedAt)?.getTime()||0)-(parseDate(a.record.startedAt)?.getTime()||0);
+    const sortBumped=(a,b)=>(parseDate(b.record.bumpedAt)?.getTime()||0)-(parseDate(a.record.bumpedAt)?.getTime()||0);
+    const vip=entries.filter(x=>x.record.kind==='vip'&&recordActiveTimed(x.record,ts)).sort(sortStarted);
     if(vip.length)return {tier:'vip',listingIds:vip.map(x=>x.listingId)};
-
-    const top=entries.filter(x=>timedActive(x,'top')).sort(sortStarted);
+    const top=entries.filter(x=>x.record.kind==='top'&&recordActiveTimed(x.record,ts)).sort(sortStarted);
     if(top.length)return {tier:'top',listingIds:top.map(x=>x.listingId)};
-
-    const bumped=entries.filter(x=>!!parseDate(x.record.bumpedAt)).sort(sortBumped);
+    const bumped=entries.filter(x=>x.record.kind==='bump'&&!!parseDate(x.record.bumpedAt)).sort(sortBumped);
     if(bumped.length)return {tier:'bump',listingIds:bumped.map(x=>x.listingId)};
-
     return {tier:null,listingIds:[]};
   }
+
+  function getRankingState(listingId,now){
+    const state=getListingPromotionState(listingId,now);
+    if(state.active&&state.kind==='vip')return {tier:'vip',priority:2,startedAt:state.startedAt||null,bumpedAt:null};
+    if(state.active&&state.kind==='top')return {tier:'top',priority:1,startedAt:state.startedAt||null,bumpedAt:null};
+    if(state.kind==='bump')return {tier:'bump',priority:0,startedAt:null,bumpedAt:state.bumpedAt||null};
+    return {tier:null,priority:0,startedAt:null,bumpedAt:null};
+  }
+
   function applyPromotion(listingId,productId){
-    const c=getConfig(),p=c.products[productId];if(!p)throw new Error('Невалиден тип промоция.');
-    const id=String(listingId||'listing-'+Date.now()),all=getListingPromotions(),now=Date.now();
-    const record=all[id]||{};
-    if(p.kind==='bump')record.bumpedAt=new Date(now).toISOString();
-    if(p.kind==='top'||p.kind==='vip'){
+    const c=getConfig(),p=c.products[productId];if(!p||!p.enabled)throw new Error('Невалиден тип промоция.');
+    const id=String(listingId||'').trim()||('listing-'+Date.now()),allowed=canApplyPromotion(id,productId);
+    if(!allowed.ok)throw new Error(allowed.message);
+    const all=getListingPromotions(),now=Date.now(),record={};
+    if(p.kind==='bump'){
+      record.kind='bump';record.productId=productId;record.startedAt=new Date(now).toISOString();record.bumpedAt=record.startedAt;record.expiresAt=null;
+    }else if(p.kind==='top'||p.kind==='vip'){
       const until=now+Number(p.durationDays||0)*86400000;
-      record.kind=p.kind;record.productId=productId;record.startedAt=new Date(now).toISOString();record.expiresAt=p.durationDays?new Date(until).toISOString():null;
-    }
+      record.kind=p.kind;record.productId=productId;record.startedAt=new Date(now).toISOString();record.expiresAt=p.durationDays?new Date(until).toISOString():null;record.bumpedAt=null;
+    }else throw new Error('Невалиден тип промоция.');
     all[id]=record;write(LISTING_PROMOS_KEY,all);
     window.dispatchEvent(new CustomEvent('market:listing-promotion-changed',{detail:{listingId:id,record}}));
     return record;
   }
+
   function useCredit(productId,listingId,userId){
-    const id=userId||getCurrentUser().id,w=getWallet(id);if(Number(w[productId]||0)<1)throw new Error('Нямаш налична активация за тази услуга.');
-    w[productId]-=1;setWallet(id,w);const record=applyPromotion(listingId,productId);historyPush({userId:id,productId,qty:-1,reason:'Използвано за обява '+String(listingId||''),source:'use',balanceAfter:w[productId]});return record;
+    const user=userId||getCurrentUser().id,w=getWallet(user);
+    if(Number(w[productId]||0)<1)throw new Error('Нямаш налична активация за тази услуга.');
+    const allowed=canApplyPromotion(listingId,productId);
+    if(!allowed.ok)throw new Error(allowed.message);
+    const previous=Number(w[productId]||0);
+    w[productId]=previous-1;setWallet(user,w);
+    try{
+      const record=applyPromotion(listingId,productId);
+      historyPush({userId:user,productId,qty:-1,reason:'Използвано за обява '+String(listingId||''),source:'use',balanceAfter:w[productId]});
+      return record;
+    }catch(err){
+      w[productId]=previous;setWallet(user,w);throw err;
+    }
   }
   function walletSummary(userId){
     const c=getConfig(),w=getWallet(userId);return Object.values(c.products).filter(p=>p.enabled&&Number(w[p.id]||0)>0).map(p=>({id:p.id,name:p.name,count:Number(w[p.id]||0)}));
   }
 
-  window.MarketMonetization={DEFAULTS:clone(DEFAULTS),getConfig,saveConfig,setPlatform,getPlatform,paidAvailable,checkoutAllowed,getCurrentUser,setCurrentUser,getWallet,setWallet,adjustWallet,getHistory,getPurchases,promoActive,priceFor,money,findItem,completePurchase,useCredit,applyPromotion,getListingPromotions,getFeaturedPromotionSelection,walletSummary};
+  window.MarketMonetization={DEFAULTS:clone(DEFAULTS),getConfig,saveConfig,setPlatform,getPlatform,paidAvailable,checkoutAllowed,getCurrentUser,setCurrentUser,getWallet,setWallet,adjustWallet,getHistory,getPurchases,promoActive,priceFor,money,findItem,completePurchase,useCredit,applyPromotion,getListingPromotions,getActivePromotion,getListingPromotionState,canApplyPromotion,getFeaturedPromotionSelection,getRankingState,validatePaidSetup,getBonusCampaign,getBonusGrant,getBonusSummary,grantEarlyBetaBonus,useBonus,bonusPromotionsAvailable,promotionPlacementEnabled,promotionAccessAvailable,walletSummary};
 })();
