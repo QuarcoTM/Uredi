@@ -1,14 +1,23 @@
 <!DOCTYPE html>
 
-<html lang="bg"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><title>Промоции и цени · Админ</title><link href="../assets/img/favicon.png" rel="icon"/><link href="admin.css?v=2.42" rel="stylesheet"/><meta content="noindex,nofollow" name="robots"/><meta content="strict-origin-when-cross-origin" name="referrer"/></head><body>
+<html lang="bg"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><title>Промоции и цени · Админ</title><link href="../assets/img/favicon.png" rel="icon"/><link href="admin.css?v=2.45" rel="stylesheet"/><meta content="noindex,nofollow" name="robots"/><meta content="strict-origin-when-cross-origin" name="referrer"/></head><body>
 <div class="admin-shell"><aside class="aside"><div class="aside-logo"><a aria-label="Админ начало" class="logo-link" href="index.html"><img alt="" src="../assets/img/logo.png"/></a></div><small>Администрация</small><a href="index.html"><span>Табло</span></a><a href="ads.html"><span>Обяви</span></a><a href="users.html"><span>Потребители</span></a><a href="moderation.html"><span>Модерация</span></a><a href="categories.html"><span>Категории и филтри</span></a><a href="brands.html"><span>Марки и модели</span></a><a href="reports.html"><span>Сигнали</span></a><a class="active" href="promotions.html"><span>Промоции и цени</span></a><a href="settings.html"><span>Настройки</span></a><a href="health.html"><span>Health</span></a><a href="audit.html"><span>Audit log</span></a></aside>
 <main class="main"><header class="topbar"><strong>Монетизация</strong><div>Owner · <a href="../promote.html">Към услугите</a></div></header><div class="admin-content">
-<div class="admin-info-box monetization-note"><strong>Цените са подготвени още по време на FREE BETA.</strong><span>Промоцията започва и приключва автоматично по дата/час. След края се показва редовната цена. Купените активации остават в баланса и потребителят сам решава кога да ги използва.</span></div><div class="admin-info-box" data-featured-rule-note="">
+<div class="admin-info-box monetization-note"><strong>Цените са подготвени още по време на FREE BETA.</strong><span>Промоцията започва и приключва автоматично по дата/час. След края се показва редовната цена. Купените активации остават в баланса и потребителят сам решава кога да ги използва.</span></div><div class="admin-info-box"><strong>1 обява = 1 активна промоция</strong><span>Докато TOP или VIP е активен, за същата обява не може да се активира друга услуга. „Изкачи“ е еднократно действие и не може да се използва върху активен TOP/VIP.</span></div><div class="admin-info-box" data-featured-rule-note="">
 <strong>Правило за „Избрани обяви“</strong>
 <span>Ако има активни VIP — показват се само VIP. Ако няма VIP — само TOP. Ако няма и TOP — показват се най-скоро изкачените обяви. Нивата не се смесват.</span>
 </div>
+
+<div class="panel beta-campaign-panel"><div class="panel-head"><h2>FREE BETA бонус за първите потребители</h2></div>
+<div data-beta-campaign-editor=""></div>
+<div class="admin-info-box"><strong>Как работи</strong><span>Бонусът се дава само при потвърден email и реален пореден номер на регистрацията. В production този номер трябва да идва от базата данни. Плащане не се изисква.</span></div>
+<div class="wallet-admin-box beta-campaign-test"><h3>Тест на кампанията</h3><div class="form-grid">
+<div class="field"><label>User ID</label><input data-beta-test-user="" value="demo-user"/></div>
+<div class="field"><label>№ потвърдена регистрация</label><input data-beta-test-order="" min="1" step="1" type="number" value="1"/></div>
+<div class="field full"><button class="btn primary" data-beta-test-grant="" type="button">Дай бонус, ако отговаря</button></div>
+</div><div data-beta-test-status=""></div></div></div>
 <h2 class="admin-section-title">Единични услуги</h2><div data-service-editor=""></div>
 <div class="panel"><div class="panel-head"><h2>Пакети</h2><button class="btn primary" data-add-package="" type="button">Добави пакет</button></div><div data-package-editor=""></div></div>
 <div class="panel"><div class="panel-head"><h2>Дай / отнеми бонуси на потребител</h2></div><div class="wallet-admin-box"><div class="form-grid"><div class="field"><label>User ID</label><input data-wallet-user="" value="demo-user"/></div><div class="field"><label>Вид</label><select data-wallet-product=""></select></div><div class="field"><label>Брой (+ или -)</label><input data-wallet-qty="" step="1" type="number" value="1"/></div><div class="field"><label>Причина</label><input data-wallet-reason="" placeholder="Стартов бонус / компенсация / промоция"/></div><div class="field full"><button class="btn primary" data-wallet-apply="" type="button">Приложи</button></div></div><div class="wallet-preview" data-wallet-preview=""></div></div></div>
 <div class="panel"><div class="panel-head"><h2>Последни операции</h2></div><div data-promotion-history=""></div></div>
-</div></main></div><script src="../assets/js/site-config.js?v=2.41"></script><script src="../assets/js/monetization.js?v=2.42"></script><script src="admin.js?v=2.42"></script></body></html>
+</div></main></div><script src="../assets/js/site-config.js?v=2.41"></script><script src="../assets/js/monetization.js?v=2.45"></script><script src="admin.js?v=2.45"></script></body></html>

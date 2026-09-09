@@ -191,6 +191,8 @@ document.querySelectorAll('table').forEach(table=>{
     if(e.target.checked){
       if(p.freeBeta){e.target.checked=false;toast('Първо изключи FREE BETA.');return}
       if(p.paymentMode==='live'&&!p.livePaymentsReady){e.target.checked=false;toast('Реалните плащания още не са свързани. Използвай тестов режим.');return}
+      const issues=M.validatePaidSetup?.()||[];
+      if(issues.length){e.target.checked=false;alert('Платените услуги не могат да се включат още:\n\n• '+issues.join('\n• '));renderPlatform();return}
       const msg=p.paymentMode==='test'?'Да включа ли платените услуги в ТЕСТОВ режим? Няма да се взимат истински пари.':'Да включа ли РЕАЛНИТЕ плащания?';
       if(!confirm(msg)){e.target.checked=false;return}
     }
@@ -202,8 +204,16 @@ document.querySelectorAll('table').forEach(table=>{
   });
   renderPlatform();
 
+
+  function renderBetaCampaign(){
+    const box=document.querySelector('[data-beta-campaign-editor]');if(!box)return;
+    const c=M.getConfig(),b=c.bonusCampaign||{},productOptions=Object.values(c.products).map(p=>'<option value="'+esc(p.id)+'" '+(p.id===b.creditProductId?'selected':'')+'>'+esc(p.name)+'</option>').join('');
+    const dt=v=>{if(!v)return '';const d=new Date(v);if(Number.isNaN(d.getTime()))return '';const pad=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())};
+    box.innerHTML='<div class="monetization-editor beta-campaign-editor"><div class="monetization-editor-head"><div><h3>'+esc(b.title||'Бонус за първите 500')+'</h3><p>Безплатна промоция по време на FREE BETA. Не отваря checkout.</p></div><label class="admin-switch-inline"><input data-beta-enabled type="checkbox" '+(b.enabled?'checked':'')+'> Активна</label></div><div class="monetization-grid"><label><span>Първите колко потвърдени регистрации?</span><input data-beta-limit min="1" step="1" type="number" value="'+Number(b.maxVerifiedUsers||500)+'"></label><label><span>Какъв бонус?</span><select data-beta-product>'+productOptions+'</select></label><label><span>Брой активации</span><input data-beta-qty min="1" step="1" type="number" value="'+Number(b.qty||1)+'"></label><label><span>Може да се използва до</span><input data-beta-until type="datetime-local" value="'+dt(b.redeemUntil)+'"></label></div><div class="monetization-actions"><button class="btn primary" data-save-beta-campaign type="button">Запази кампанията</button></div></div>';
+  }
+
   function promoEditor(item,type){
-    const p=item.promotion||{};return '<article class="monetization-editor" data-monetization-item="'+esc(item.id)+'" data-item-type="'+type+'"><div class="monetization-editor-head"><div><h3>'+esc(item.name)+'</h3><p>'+esc(item.description||'')+'</p></div><label class="admin-switch-inline"><input data-item-enabled type="checkbox" '+(item.enabled?'checked':'')+'> Активно</label></div><div class="monetization-grid"><label><span>Редовна цена (€)</span><input data-regular type="number" min="0" step="0.01" value="'+Number(item.regularPrice||0).toFixed(2)+'"></label><label><span>Промо цена (€)</span><input data-promo-price type="number" min="0" step="0.01" value="'+(p.price??'')+'" placeholder="няма"></label><label><span>Начало</span><input data-promo-start type="datetime-local" value="'+dt(p.start)+'"></label><label><span>Край</span><input data-promo-end type="datetime-local" value="'+dt(p.end)+'"></label><label><span>За кого</span><select data-promo-audience><option value="all" '+((p.audience||'all')==='all'?'selected':'')+'>Всички</option><option value="private" '+(p.audience==='private'?'selected':'')+'>Частни лица</option><option value="dealer" '+(p.audience==='dealer'?'selected':'')+'>Търговци</option></select></label><label><span>Край след X покупки</span><input data-promo-limit type="number" min="1" step="1" value="'+(p.maxSales??'')+'" placeholder="без лимит"></label></div><div class="monetization-actions"><label class="admin-switch-inline"><input data-promo-enabled type="checkbox" '+(p.enabled?'checked':'')+'> Промоцията е включена</label><span class="muted-admin">Покупки на промо: '+Number(p.sales||0)+(p.maxSales?' / '+Number(p.maxSales):'')+'</span><button class="btn primary" data-save-monetization type="button">Запази</button><button class="btn" data-stop-promo type="button">Спри промоцията</button>'+(type==='package'?'<button class="btn danger" data-delete-package type="button">Изтрий пакет</button>':'')+'</div></article>';
+    const p=item.promotion||{};return '<article class="monetization-editor" data-monetization-item="'+esc(item.id)+'" data-item-type="'+type+'"><div class="monetization-editor-head"><div><h3>'+esc(item.name)+'</h3><p>'+esc(item.description||'')+'</p></div><label class="admin-switch-inline"><input data-item-enabled type="checkbox" '+(item.enabled?'checked':'')+'> Активно</label></div><div class="monetization-grid"><label><span>Редовна цена (€)</span><input data-regular type="number" min="0" step="0.01" value="'+Number(item.regularPrice||0).toFixed(2)+'"></label><label><span>Промо цена (€)</span><input data-promo-price type="number" min="0" step="0.01" value="'+(p.price??'')+'" placeholder="няма"></label><label><span>Начало</span><input data-promo-start type="datetime-local" value="'+dt(p.start)+'"></label><label><span>Край</span><input data-promo-end type="datetime-local" value="'+dt(p.end)+'"></label></div><details class="monetization-advanced"><summary>Разширени настройки</summary><div class="monetization-grid"><label><span>За кого</span><select data-promo-audience><option value="all" '+((p.audience||'all')==='all'?'selected':'')+'>Всички</option><option value="private" '+(p.audience==='private'?'selected':'')+'>Частни лица</option><option value="dealer" '+(p.audience==='dealer'?'selected':'')+'>Търговци</option></select></label><label><span>Край след X покупки</span><input data-promo-limit type="number" min="1" step="1" value="'+(p.maxSales??'')+'" placeholder="без лимит"></label></div></details><div class="monetization-actions"><label class="admin-switch-inline"><input data-promo-enabled type="checkbox" '+(p.enabled?'checked':'')+'> Промоцията е включена</label><span class="muted-admin">Покупки на промо: '+Number(p.sales||0)+(p.maxSales?' / '+Number(p.maxSales):'')+'</span><button class="btn primary" data-save-monetization type="button">Запази</button><button class="btn" data-stop-promo type="button">Спри промоцията</button>'+(type==='package'?'<button class="btn danger" data-delete-package type="button">Изтрий пакет</button>':'')+'</div></article>';
   }
   function renderEditors(){
     const c=M.getConfig(),services=document.querySelector('[data-service-editor]'),packages=document.querySelector('[data-package-editor]');
@@ -228,7 +238,35 @@ document.querySelectorAll('table').forEach(table=>{
   });
   function renderWallet(){const id=(document.querySelector('[data-wallet-user]')?.value||'demo-user').trim(),w=M.getWallet(id),c=M.getConfig(),box=document.querySelector('[data-wallet-preview]');if(box)box.innerHTML=Object.values(c.products).map(p=>'<div><strong>'+Number(w[p.id]||0)+'</strong><span>'+esc(p.name)+'</span></div>').join('')}
   function renderHistory(){const box=document.querySelector('[data-promotion-history]');if(!box)return;const c=M.getConfig(),h=M.getHistory().slice(0,30);box.innerHTML=h.length?h.map(x=>'<div class="activity"><strong>'+esc(x.userId)+' · '+esc(c.products[x.productId]?.name||x.productId)+' · '+(x.qty>0?'+':'')+x.qty+'</strong><span>'+new Date(x.at).toLocaleString('bg-BG')+' · '+esc(x.reason||x.source||'')+'</span></div>').join(''):'<div class="empty-admin-state">Няма операции.</div>'}
+
+  document.addEventListener('click',e=>{
+    const save=e.target.closest('[data-save-beta-campaign]');
+    if(save){
+      const c=M.getConfig(),b=c.bonusCampaign||{};
+      const enabled=document.querySelector('[data-beta-enabled]')?.checked;
+      const maxVerifiedUsers=Number(document.querySelector('[data-beta-limit]')?.value||500);
+      const creditProductId=document.querySelector('[data-beta-product]')?.value||'top7';
+      const qty=Number(document.querySelector('[data-beta-qty]')?.value||1);
+      const until=document.querySelector('[data-beta-until]')?.value||'';
+      if(!Number.isInteger(maxVerifiedUsers)||maxVerifiedUsers<1){toast('Невалиден брой регистрации.');return}
+      if(!Number.isInteger(qty)||qty<1){toast('Невалиден брой бонуси.');return}
+      if(!c.products[creditProductId]){toast('Невалиден вид бонус.');return}
+      b.enabled=!!enabled;b.maxVerifiedUsers=maxVerifiedUsers;b.creditProductId=creditProductId;b.qty=qty;b.redeemUntil=until?new Date(until).toISOString():null;b.requiresVerifiedEmail=true;
+      c.bonusCampaign=b;M.saveConfig(c);renderBetaCampaign();toast('FREE BETA кампанията е запазена.');return;
+    }
+    const grant=e.target.closest('[data-beta-test-grant]');
+    if(grant){
+      const user=(document.querySelector('[data-beta-test-user]')?.value||'').trim(),order=Number(document.querySelector('[data-beta-test-order]')?.value),status=document.querySelector('[data-beta-test-status]');
+      const result=M.grantEarlyBetaBonus?.(user,order,true);
+      if(status){
+        status.className=result?.granted?'admin-info-box':'warning-callout';
+        status.textContent=result?.granted?'Бонусът е даден успешно.':'Не е даден бонус: '+String(result?.reason||'неизвестна причина');
+      }
+      renderHistory();return;
+    }
+  });
+
   document.querySelector('[data-wallet-user]')?.addEventListener('input',renderWallet);
   document.querySelector('[data-wallet-apply]')?.addEventListener('click',()=>{const id=(document.querySelector('[data-wallet-user]').value||'demo-user').trim(),product=document.querySelector('[data-wallet-product]').value,qty=Number(document.querySelector('[data-wallet-qty]').value),reason=document.querySelector('[data-wallet-reason]').value.trim();try{M.adjustWallet(id,product,qty,reason||'Ръчна корекция от админ','admin');renderWallet();renderHistory();toast('Балансът е променен.')}catch(err){toast(err.message)}});
-  if(document.querySelector('[data-service-editor]'))renderEditors();
+  if(document.querySelector('[data-service-editor]')){renderEditors();renderBetaCampaign();}
 })();
