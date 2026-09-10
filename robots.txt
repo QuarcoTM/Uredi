@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /account-security.html
+Disallow: /profile.html
+Disallow: /profile-edit.html
+Disallow: /profile-settings.html
+Disallow: /messages.html
+Disallow: /notifications.html
+Disallow: /my-ads.html
+Disallow: /checkout.html
+Sitemap: https://quarcotm.github.io/sitemap.xml
