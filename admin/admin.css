@@ -383,3 +383,6 @@ html,body{max-width:100%;overflow-x:clip}
 .beta-campaign-editor{margin:0}
 .beta-campaign-test{margin-top:12px}
 .beta-campaign-test h3{margin:0 0 12px}
+
+/* v2.54 production security checklist */
+.security-checklist-admin{display:grid}.security-checklist-admin>div{display:grid;grid-template-columns:minmax(180px,1fr) minmax(280px,2fr) auto;gap:14px;align-items:center;padding:14px 16px;border-top:1px solid #e6eaf0}.security-checklist-admin span{color:#6b7480;font-size:13px}.status-warn,.status-ok{display:inline-flex;border-radius:999px;padding:5px 9px;font-size:11px}.status-warn{background:#fff3cd;color:#775500}.status-ok{background:#e8f7ee;color:#17673b}@media(max-width:760px){.security-checklist-admin>div{grid-template-columns:1fr;gap:5px}}
