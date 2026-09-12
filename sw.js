@@ -1,10 +1,10 @@
-const CACHE='tehnika-v2.63';
+const CACHE='tehnika-v2.64';
 const CORE=[
   './index.html',
   './profile-promotions.html',
-  './assets/css/styles-v263.css',
-  './assets/js/app-v263.js',
-  './assets/js/supabase-v263.js',
+  './assets/css/styles-v264.css',
+  './assets/js/app-v264.js',
+  './assets/js/supabase-v264.js',
   './assets/js/monetization-v252.js',
   './assets/js/category-page.js',
   './assets/js/geo-v263.js',
@@ -64,31 +64,27 @@ self.addEventListener('fetch',event=>{
     return;
   }
 
-  // Same-origin CSS/JS/images: cache first, refresh in background.
-  // They NEVER fall back to an HTML page.
+  // Same-origin assets: JS/CSS are network-first so a newly deployed version is not
+  // stuck one release behind on iOS. Images can still use the cached copy first.
   if(sameOrigin){
     event.respondWith((async()=>{
-      const cached=await caches.match(request,{ignoreSearch:false});
-
-      const networkPromise=fetch(request,{cache:'no-store'})
-        .then(async response=>{
+      const isCode=/\.(?:js|css)$/i.test(url.pathname);
+      if(isCode){
+        try{
+          const response=await fetch(request,{cache:'no-store'});
           await cachePut(request,response);
           return response;
-        })
-        .catch(()=>null);
-
-      if(cached){
-        event.waitUntil(networkPromise.then(()=>{}));
-        return cached;
+        }catch(e){
+          const cached=await caches.match(request,{ignoreSearch:false});
+          if(cached)return cached;
+        }
+      }else{
+        const cached=await caches.match(request,{ignoreSearch:false});
+        const networkPromise=fetch(request,{cache:'no-store'}).then(async response=>{await cachePut(request,response);return response}).catch(()=>null);
+        if(cached){event.waitUntil(networkPromise.then(()=>{}));return cached}
+        const network=await networkPromise;if(network)return network;
       }
-
-      const network=await networkPromise;
-      if(network)return network;
-
-      return new Response('',{
-        status:503,
-        statusText:'Asset unavailable'
-      });
+      return new Response('',{status:503,statusText:'Asset unavailable'});
     })());
     return;
   }
