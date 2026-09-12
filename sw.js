@@ -1,12 +1,13 @@
-const CACHE='tehnika-v2.62';
+const CACHE='tehnika-v2.63';
 const CORE=[
   './index.html',
   './profile-promotions.html',
-  './assets/css/styles-v262.css',
-  './assets/js/app-v262.js',
-  './assets/js/supabase-v262.js',
+  './assets/css/styles-v263.css',
+  './assets/js/app-v263.js',
+  './assets/js/supabase-v263.js',
   './assets/js/monetization-v252.js',
   './assets/js/category-page.js',
+  './assets/js/geo-v263.js',
   './assets/img/logo.png'
 ];
 
