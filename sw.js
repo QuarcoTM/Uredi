@@ -1,14 +1,15 @@
-const CACHE='tehnika-v2.66';
+const CACHE='tehnika-v2.67';
 const CORE=[
   './index.html',
   './profile-promotions.html',
-  './assets/css/styles-v266.css',
-  './assets/js/app-v266.js',
-  './assets/js/supabase-v266.js',
+  './assets/css/styles-v267.css',
+  './assets/js/app-v267.js',
+  './assets/js/supabase-v267.js',
   './assets/js/monetization-v252.js',
   './assets/js/category-page.js',
-  './assets/js/geo-v266.js',
-  './assets/img/logo.png'
+  './assets/js/geo-v267.js',
+  './assets/img/logo.png',
+  './assets/img/home-appliances-hq.png'
 ];
 
 self.addEventListener('install',event=>{
