@@ -116,13 +116,33 @@
     }).join('');
   }
 
-  async function loadConversations({keepSelection=true}={}){
+  function conversationListSignature(list){
+    return (list||[]).map(c=>[
+      c.id,c.last_message_id,c.last_message_at,c.seller_unread,c.buyer_unread,
+      c.seller_archived,c.buyer_archived,c.last_message_preview
+    ].join('|')).join('~');
+  }
+
+  async function loadConversations({keepSelection=true,render=true}={}){
     const old=keepSelection?state.selectedId:null;
+    const before=conversationListSignature(state.conversations);
     const {data,error}=await client.from('market_conversations').select('*').order('last_message_at',{ascending:false});
     if(error)throw error;
     state.conversations=data||[];
     await ensureProfiles(state.conversations.map(otherId));
     if(old&&!state.conversations.some(c=>c.id===old))state.selectedId=null;
+    if(render||before!==conversationListSignature(state.conversations))renderConversationRows();
+  }
+
+  async function applyConversationRealtime(row){
+    if(!row?.id)return;
+    if(row.seller_id!==state.user?.id&&row.buyer_id!==state.user?.id)return;
+    const i=state.conversations.findIndex(c=>c.id===row.id);
+    if(i>=0)state.conversations[i]={...state.conversations[i],...row};
+    else state.conversations.push(row);
+    state.conversations.sort((a,b)=>new Date(b.last_message_at||b.updated_at||0)-new Date(a.last_message_at||a.updated_at||0));
+    await ensureProfiles([otherId(row)]);
+    if(state.selectedId===row.id)state.selected=state.conversations.find(c=>c.id===row.id)||state.selected;
     renderConversationRows();
   }
 
@@ -170,6 +190,41 @@
     return `<div class="bubble-row${mine?' me':''}" data-real-message-id="${esc(m.id)}" data-message-direction="${mine?'outgoing':'incoming'}">
       <div class="bubble">${m.body?`<div class="real-chat-message-text">${esc(m.body).replace(/\n/g,'<br>')}</div>`:''}${(m.attachments||[]).map(attachmentHTML).join('')}<div class="bubble-time">${esc(new Date(m.created_at).toLocaleTimeString('bg-BG',{hour:'2-digit',minute:'2-digit'}))}</div>${mine&&m.seen_at?`<div class="bubble-seen">Видяно ${esc(new Date(m.seen_at).toLocaleTimeString('bg-BG',{hour:'2-digit',minute:'2-digit'}))}</div>`:''}</div>
     </div>`;
+  }
+
+  function messageAlreadyRendered(id){
+    const host=$('[data-real-message-list]',pane);
+    if(!host||!id)return false;
+    return [...host.querySelectorAll('[data-real-message-id]')].some(x=>x.dataset.realMessageId===String(id));
+  }
+
+  function scrollMessagesToBottom(host){
+    if(!host)return;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      host.scrollTop=host.scrollHeight;
+    }));
+  }
+
+  function appendMessageToPane(message,{scroll=true}={}){
+    const host=$('[data-real-message-list]',pane);
+    if(!host||!message||state.selectedId!==message.conversation_id||messageAlreadyRendered(message.id))return;
+    const wasNearBottom=(host.scrollHeight-host.scrollTop-host.clientHeight)<=90;
+    if(host.querySelector('.real-chat-empty-thread,.real-chat-loading'))host.innerHTML='';
+    host.insertAdjacentHTML('beforeend',messageHTML(message));
+    if(scroll===true||(scroll==='auto'&&wasNearBottom))scrollMessagesToBottom(host);
+  }
+
+  function updateSeenStateInPane(message){
+    if(!message?.id||message.sender_id!==state.user?.id)return;
+    const host=$('[data-real-message-list]',pane);if(!host)return;
+    const row=[...host.querySelectorAll('[data-real-message-id]')].find(x=>x.dataset.realMessageId===String(message.id));
+    if(!row)return;
+    const bubble=$('.bubble',row);if(!bubble)return;
+    let seen=$('.bubble-seen',bubble);
+    if(message.seen_at){
+      if(!seen){seen=document.createElement('div');seen.className='bubble-seen';bubble.appendChild(seen)}
+      seen.textContent=`Видяно ${new Date(message.seen_at).toLocaleTimeString('bg-BG',{hour:'2-digit',minute:'2-digit'})}`;
+    }
   }
 
   function currentOtherName(){return state.selected?profileName(otherId(state.selected)):'Потребител'}
@@ -224,7 +279,7 @@
     if(state.selectedId!==id)return;
     host.innerHTML=messages.length?messages.map(messageHTML).join(''):`<div class="real-chat-empty-thread"><strong>Нов разговор</strong><span>Напиши първото съобщение за тази обява.</span></div>`;
     requestAnimationFrame(()=>{
-      if(scroll===true||(scroll==='auto'&&wasNearBottom))host.scrollTop=host.scrollHeight;
+      if(scroll===true||(scroll==='auto'&&wasNearBottom))scrollMessagesToBottom(host);
       else if(scroll===false)host.scrollTop=Math.min(previousTop,Math.max(0,host.scrollHeight-host.clientHeight));
     });
   }
@@ -389,10 +444,41 @@
         const meta=await client.rpc('market_add_message_attachment',{p_message_id:messageId,p_storage_path:uploadedPath,p_file_name:file.name||'Файл',p_mime_type:file.type||null,p_file_size:file.size||0});
         if(meta.error)throw meta.error;
       }
+      const localAttachments=file?[{
+        id:`local-${messageId}`,
+        message_id:messageId,
+        conversation_id:state.selectedId,
+        uploader_id:state.user.id,
+        storage_bucket:'chat-attachments',
+        storage_path:uploadedPath,
+        file_name:file.name||'Файл',
+        mime_type:file.type||null,
+        file_size:file.size||0,
+        signed_url:URL.createObjectURL(file)
+      }]:[];
+      appendMessageToPane({
+        id:messageId,
+        conversation_id:state.selectedId,
+        sender_id:state.user.id,
+        body:body.trim()||null,
+        has_attachment:!!file,
+        created_at:new Date().toISOString(),
+        seen_at:null,
+        attachments:localAttachments
+      },{scroll:true});
       if(input){input.value='';syncComposer()}
+      const fi=$('[data-real-file-input]',pane);if(fi)fi.value='';
       setFile(null);
-      await loadConversations();
-      await refreshSelected({messages:true});
+      const current=state.conversations.find(x=>x.id===state.selectedId);
+      if(current){
+        current.last_message_id=messageId;
+        current.last_message_preview=body.trim()||'📎 Прикачен файл';
+        current.last_message_sender_id=state.user.id;
+        current.last_message_at=new Date().toISOString();
+        state.conversations.sort((a,b)=>new Date(b.last_message_at||0)-new Date(a.last_message_at||0));
+        state.selected=current;
+        renderConversationRows();
+      }
       window.UrediChatBadgeRefresh?.();
     }catch(err){
       if(uploadedPath){try{await client.storage.from('chat-attachments').remove([uploadedPath])}catch{}}
@@ -427,7 +513,7 @@
     if(state.syncBusy||document.visibilityState!=='visible'||!state.user?.id)return;
     state.syncBusy=true;
     try{
-      await loadConversations();
+      await loadConversations({render:false});
       if(state.selectedId){
         const current=state.conversations.find(c=>c.id===state.selectedId);
         if(current){
@@ -455,27 +541,32 @@
     state.channel=client.channel(`uredi-real-chat-${state.user.id}-${Date.now()}`)
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'market_messages'},async payload=>{
         try{
-          await loadConversations();
           const m=payload.new||{};
           if(m.conversation_id===state.selectedId){
+            if(!messageAlreadyRendered(m.id))appendMessageToPane({...m,attachments:[]},{scroll:m.sender_id===state.user.id?true:'auto'});
             if(m.sender_id!==state.user.id&&document.visibilityState==='visible')await markRead(state.selectedId);
-            setTimeout(()=>renderMessages(state.selectedId,{scroll:'auto'}).catch(console.warn),70);
           }
           window.UrediChatBadgeRefresh?.();
         }catch(err){console.warn(err)}
       })
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'market_messages'},payload=>{
-        if((payload.new||{}).conversation_id===state.selectedId)renderMessages(state.selectedId,{scroll:false}).catch(console.warn);
+        const m=payload.new||{};
+        if(m.conversation_id===state.selectedId)updateSeenStateInPane(m);
       })
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'market_message_attachments'},payload=>{
-        if((payload.new||{}).conversation_id===state.selectedId)setTimeout(()=>renderMessages(state.selectedId,{scroll:'auto'}).catch(console.warn),80);
+        const a=payload.new||{};
+        if(a.conversation_id!==state.selectedId)return;
+        const host=$('[data-real-message-list]',pane);
+        const row=host?[...host.querySelectorAll('[data-real-message-id]')].find(x=>x.dataset.realMessageId===String(a.message_id)):null;
+        const alreadyHasAttachment=!!row?.querySelector('.real-chat-image-button,.real-chat-file');
+        if(a.uploader_id===state.user.id&&alreadyHasAttachment)return;
+        setTimeout(()=>renderMessages(state.selectedId,{scroll:'auto'}).catch(console.warn),65);
       })
-      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'market_conversations'},async()=>{
-        try{
-          await loadConversations();
-          const c=state.conversations.find(x=>x.id===state.selectedId);
-          if(c)state.selected=c;
-        }catch{}
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'market_conversations'},payload=>{
+        applyConversationRealtime(payload.new||{}).catch(console.warn);
+      })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'market_conversations'},payload=>{
+        applyConversationRealtime(payload.new||{}).catch(console.warn);
       })
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'market_deals'},async payload=>{
         try{

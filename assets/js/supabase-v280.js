@@ -2016,85 +2016,23 @@
   }
   window.UrediChatBadgeRefresh=refreshRealChatBadge;
 
-  const notificationWhen=(value)=>{
-    const d=new Date(value);
-    if(Number.isNaN(d.getTime()))return '';
-    return d.toLocaleString('bg-BG',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-  };
-
-  async function renderRealMessageNotifications(session){
-    if(file()!=='notifications.html'||!session?.user?.id)return;
-    const host=qs('[data-notification-list]');
-    if(!host)return;
-    const userId=session.user.id;
-
-    const [{data:messages,error:mErr},{data:conversations,error:cErr}]=await Promise.all([
-      client.from('market_messages')
-        .select('id,conversation_id,sender_id,body,has_attachment,created_at,seen_at')
-        .neq('sender_id',userId)
-        .order('created_at',{ascending:false})
-        .limit(50),
-      client.from('market_conversations')
-        .select('id,listing_title,seller_id,buyer_id')
-    ]);
-    if(mErr){console.warn('Message notifications:',mErr);return}
-    if(cErr){console.warn('Message notification conversations:',cErr);return}
-
-    const convMap=new Map((conversations||[]).map(c=>[c.id,c]));
-    const senderIds=[...new Set((messages||[]).map(m=>m.sender_id).filter(Boolean))];
-    let profiles=[];
-    if(senderIds.length){
-      const {data,error}=await client.from('profiles').select('id,display_name').in('id',senderIds);
-      if(!error)profiles=data||[];
-    }
-    const nameMap=new Map(profiles.map(p=>[p.id,p.display_name||'Потребител']));
-
-    qsa('.real-message-notification',host).forEach(x=>x.remove());
-    const empty=qs('[data-notifications-empty]',host);
-    const fragment=document.createDocumentFragment();
-
-    for(const m of messages||[]){
-      const c=convMap.get(m.conversation_id);
-      if(!c)continue;
-      const article=document.createElement('article');
-      article.className='notification-item real-message-notification'+(m.seen_at?'':' is-unread');
-      article.dataset.notificationType='messages';
-      article.dataset.notificationLink=`messages.html?conversation=${encodeURIComponent(m.conversation_id)}`;
-      const sender=nameMap.get(m.sender_id)||'Потребител';
-      const preview=(String(m.body||'').trim()||(m.has_attachment?'Изпратен е файл.':'Ново съобщение.')).slice(0,180);
-      const listing=c.listing_title?` · ${c.listing_title}`:'';
-      article.innerHTML=`<div class="notification-icon">💬</div><div class="notification-copy"><strong>${m.seen_at?'Съобщение':'Ново съобщение'} от ${esc(sender)}</strong><p>${esc(preview)}</p><small>${esc(notificationWhen(m.created_at))}${esc(listing)}</small></div><a class="mini-btn" href="messages.html?conversation=${encodeURIComponent(m.conversation_id)}">Отвори</a>`;
-      fragment.appendChild(article);
-    }
-    if(empty)empty.hidden=!!(messages||[]).length||!!host.querySelector('.notification-item:not(.real-message-notification)');
-    host.insertBefore(fragment,empty||null);
-
-    const activeFilter=qs('[data-notification-filter].active')?.dataset?.notificationFilter||'all';
-    qsa('.notification-item',host).forEach(item=>{
-      item.hidden=activeFilter!=='all'&&item.dataset.notificationType!==activeFilter;
-    });
-  }
 
   async function initRealChatBadge(session){
     realChatBadgeUserId=session?.user?.id||null;
     if(!realChatBadgeUserId){paintRealChatBadge(0);return}
     await refreshRealChatBadge();
-    await renderRealMessageNotifications(session);
     try{
       if(realChatBadgeChannel)await client.removeChannel(realChatBadgeChannel);
       realChatBadgeChannel=client.channel(`uredi-chat-badge-${realChatBadgeUserId}`)
         .on('postgres_changes',{event:'INSERT',schema:'public',table:'market_messages'},async()=>{
           await refreshRealChatBadge();
-          await renderRealMessageNotifications(session);
-        })
+              })
         .on('postgres_changes',{event:'UPDATE',schema:'public',table:'market_messages'},async()=>{
           await refreshRealChatBadge();
-          await renderRealMessageNotifications(session);
-        })
+              })
         .on('postgres_changes',{event:'UPDATE',schema:'public',table:'market_conversations'},async()=>{
           await refreshRealChatBadge();
-          await renderRealMessageNotifications(session);
-        })
+              })
         .subscribe();
     }catch(err){console.warn('Chat badge realtime unavailable',err)}
   }
