@@ -1,16 +1,16 @@
-const CACHE='tehnika-v2.79';
+const CACHE='tehnika-v2.80';
 const CORE=[
   './index.html',
   './profile-promotions.html',
-  './assets/css/styles-v279.css',
-  './assets/js/app-v279.js',
-  './assets/js/supabase-v279.js',
-  './assets/js/form-ux-v279.js',
-  './assets/js/category-fields-v279.js',
+  './assets/css/styles-v280.css',
+  './assets/js/app-v280.js',
+  './assets/js/supabase-v280.js',
+  './assets/js/form-ux-v280.js',
+  './assets/js/category-fields-v280.js',
   './assets/js/monetization-v252.js',
   './assets/js/category-page.js',
   './assets/js/geo-v267.js',
-  './assets/js/chat-v270.js',
+  './assets/js/chat-v280.js',
   './assets/img/logo.png',
   './assets/img/home-appliances-hq.png'
 ];
