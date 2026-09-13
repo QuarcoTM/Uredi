@@ -152,8 +152,11 @@
       const confirm=qs('[data-register-password-confirm]')?.value||'';
       const type=qs('[data-register-type]')?.value==='dealer'?'dealer':'private';
       const phoneValue=qs('[data-register-phone]')?.value.trim()||'';
+      const city=qs('[data-register-city]')?.value.trim()||'';
       const terms=!!qs('[data-register-terms]')?.checked;
-      if(name.length<2){toast('Попълни име и фамилия.');return}
+      if(name.length<2||name.length>40){toast('Потребителското име трябва да е между 2 и 40 символа.');return}
+      if(city.length<2||city.length>60){toast('Въведи населено място.');return}
+      if(phoneValue&&!/^\d{6,15}$/.test(phoneValue)){toast('Телефонът трябва да съдържа между 6 и 15 цифри.');return}
       if(!emailOk(email)){toast('Въведи валиден email адрес.');return}
       if(!passOk(password)){toast('Паролата трябва да е минимум 8 символа и да съдържа поне 1 буква и 1 цифра.');return}
       if(password!==confirm){toast('Паролите не съвпадат.');return}
@@ -172,6 +175,7 @@
           emailRedirectTo:abs('verify-email.html'),
           data:{
             display_name:name,
+            city,
             profile_type:type,
             phone:phoneValue||null,
             company_name:companyName,
@@ -308,17 +312,23 @@
     if(name)name.value=p.display_name||'';
     if(phone)phone.value=pr.phone||'';
     if(email)email.value=session.user.email||'';
-    if(city&&p.city){if(![...city.options].some(o=>o.value===p.city)){const o=document.createElement('option');o.value=p.city;o.textContent=p.city;city.appendChild(o)}city.value=p.city}
+    if(city)city.value=p.city||'';
     const showPhone=qs('.profile-toggle-input');if(showPhone)showPhone.checked=!!pr.show_phone;
     qs('[data-profile-save]')?.addEventListener('click',async e=>{
-      const displayName=name?.value.trim()||'';if(displayName.length<2){toast('Попълни името.');return}
+      const displayName=name?.value.trim()||'';
+      const cityValue=city?.value.trim()||'';
+      if(displayName.length<2||displayName.length>40){toast('Потребителското име трябва да е между 2 и 40 символа.');return}
+      if(cityValue.length<2||cityValue.length>60){toast('Въведи населено място.');return}
+      const phoneValue=phone?.value.trim()||'';
+      if(phoneValue&&!/^\d{6,15}$/.test(phoneValue)){toast('Телефонът трябва да съдържа между 6 и 15 цифри.');return}
       busy(e.currentTarget,true,'Запазване…');
       const [a,b]=await Promise.all([
-        client.from('profiles').update({display_name:displayName,city:city?.value||null}).eq('id',session.user.id),
-        client.from('profile_private').update({phone:phone?.value.trim()||null,show_phone:!!showPhone?.checked}).eq('user_id',session.user.id)
+        client.from('profiles').update({display_name:displayName,city:cityValue}).eq('id',session.user.id),
+        client.from('profile_private').update({phone:phoneValue||null,show_phone:!!showPhone?.checked}).eq('user_id',session.user.id)
       ]);
       busy(e.currentTarget,false);
       if(a.error||b.error){toast(humanizeError(a.error||b.error));return}
+      try{await client.auth.updateUser({data:{display_name:displayName,city:cityValue}})}catch(err){console.warn('Profile metadata sync skipped',err)}
       await syncLegacyUser(await getSession());toast('Промените са запазени.');
     });
   }
@@ -1267,7 +1277,7 @@
     if(!(ctx.price>0)){errors.push('Въведи валидна цена.');step=Math.max(step,2)}
     if(!ctx.defects){errors.push('Опиши дефектите или напиши „Няма“.');step=Math.max(step,2)}
     if(!ctx.description){errors.push('Добави описание.');step=Math.max(step,3)}
-    if(!ctx.city){errors.push('Въведи град.');step=Math.max(step,4)}
+    if(!ctx.city){errors.push('Въведи населено място.');step=Math.max(step,4)}
     if(!ctx.delivery){errors.push('Избери начин на доставка.');step=Math.max(step,4)}
     // v2.70: structured fields accept only values offered by the UI.
     const allowedCategories=new Set(['Перални','Сушилни','Перални със сушилни','Хладилници','Фризери','Съдомиялни','Фурни','Готварски печки','Котлони','Аспиратори','Микровълнови','Климатици','Бойлери','Друга бяла техника']);
@@ -1285,7 +1295,7 @@
       {value:ctx.model,label:'Модел',min:0,max:60,step:0,optional:true},
       {value:ctx.defects,label:'Известни дефекти или забележки',min:1,max:1000,step:2,optional:false},
       {value:ctx.description,label:'Описание',min:20,max:2000,step:3,optional:false},
-      {value:ctx.city,label:'Град',min:2,max:60,step:4,optional:false},
+      {value:ctx.city,label:'Населено място',min:2,max:60,step:4,optional:false},
       {value:ctx.phone,label:'Телефон',min:6,max:15,step:4,optional:true}
     ];
     for(const rule of textRules){

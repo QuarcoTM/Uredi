@@ -3075,14 +3075,24 @@
       const email=document.querySelector('[data-register-email]')?.value.trim()||'';
       const pass=document.querySelector('[data-register-password]')?.value||'';
       const passConfirm=document.querySelector('[data-register-password-confirm]')?.value||'';
+      const city=document.querySelector('[data-register-city]')?.value.trim()||'';
       const type=document.querySelector('[data-register-type]')?.value||'private';
       const terms=!!document.querySelector('[data-register-terms]')?.checked;
       const emailOk=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
       const passwordOk=pass.length>=8&&/[A-Za-zА-Яа-яЁё]/.test(pass)&&/\d/.test(pass);
 
-      if(!name||!emailOk){
+      if(name.length<2||name.length>40||!emailOk){
         addAttempt();
-        window.marketToast?.('Провери името и въведи валиден email.');
+        window.marketToast?.('Провери потребителското име и въведи валиден email.');
+        return;
+      }
+      if(city.length<2||city.length>60){
+        window.marketToast?.('Въведи населено място.');
+        return;
+      }
+      const phone=(document.querySelector('[data-register-phone]')?.value||'').trim();
+      if(phone&&!/^\d{6,15}$/.test(phone)){
+        window.marketToast?.('Телефонът трябва да съдържа между 6 и 15 цифри.');
         return;
       }
       if(!passwordOk){
@@ -3115,7 +3125,7 @@
       }
 
       const pending={
-        name,email,
+        name,email,city,
         type:type==='dealer'?'dealer':'private',
         companyName:type==='dealer'?companyName:null,
         eik:type==='dealer'?eik:null,
@@ -3130,6 +3140,7 @@
           name,
           type:pending.type,
           email,
+          city,
           companyName:pending.companyName,
           eik:pending.eik,
           companyCity:pending.companyCity
