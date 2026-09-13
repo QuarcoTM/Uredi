@@ -45,7 +45,9 @@
     channel:null,
     file:null,
     signedUrls:new Map(),
-    loadingConversation:false
+    loadingConversation:false,
+    syncTimer:null,
+    syncBusy:false
   };
 
   shell.innerHTML=`
@@ -216,10 +218,15 @@
 
   async function renderMessages(id,{scroll=true}={}){
     const host=$('[data-real-message-list]',pane);if(!host)return;
+    const previousTop=host.scrollTop;
+    const wasNearBottom=(host.scrollHeight-host.scrollTop-host.clientHeight)<=90;
     const messages=await loadMessages(id);
     if(state.selectedId!==id)return;
     host.innerHTML=messages.length?messages.map(messageHTML).join(''):`<div class="real-chat-empty-thread"><strong>Нов разговор</strong><span>Напиши първото съобщение за тази обява.</span></div>`;
-    if(scroll)requestAnimationFrame(()=>{host.scrollTop=host.scrollHeight});
+    requestAnimationFrame(()=>{
+      if(scroll===true||(scroll==='auto'&&wasNearBottom))host.scrollTop=host.scrollHeight;
+      else if(scroll===false)host.scrollTop=Math.min(previousTop,Math.max(0,host.scrollHeight-host.clientHeight));
+    });
   }
 
   async function markRead(id){
@@ -402,10 +409,45 @@
     $('[data-real-unblock]',pane)?.addEventListener('click',async()=>{try{await blockCurrent(false)}catch(err){toast(humanError(err))}});
     $('[data-real-complete-deal]',pane)?.addEventListener('click',openDealModal);
     $('[data-real-review-open]',pane)?.addEventListener('click',openReviewModal);
-    const input=$('[data-real-chat-input]',pane);input?.addEventListener('input',syncComposer);syncComposer();
+    const input=$('[data-real-chat-input]',pane);
+    input?.addEventListener('input',syncComposer);
+    input?.addEventListener('keydown',e=>{
+      if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){
+        e.preventDefault();
+        if(!e.repeat)sendCurrent();
+      }
+    });
+    syncComposer();
     $('[data-real-file-input]',pane)?.addEventListener('change',e=>{const f=e.target.files?.[0]||null;if(f&&f.size>15728640){toast('Файлът може да е максимум 15 MB.');e.target.value='';return}setFile(f)});
     $('[data-real-file-remove]',pane)?.addEventListener('click',()=>{const fi=$('[data-real-file-input]',pane);if(fi)fi.value='';setFile(null)});
     $('[data-real-chat-form]',pane)?.addEventListener('submit',e=>{e.preventDefault();sendCurrent()});
+  }
+
+  async function syncChatCatchUp(){
+    if(state.syncBusy||document.visibilityState!=='visible'||!state.user?.id)return;
+    state.syncBusy=true;
+    try{
+      await loadConversations();
+      if(state.selectedId){
+        const current=state.conversations.find(c=>c.id===state.selectedId);
+        if(current){
+          state.selected=current;
+          const host=$('[data-real-message-list]',pane);
+          const rendered=host?.querySelector('[data-real-message-id]:last-of-type')?.dataset?.realMessageId||'';
+          if(current.last_message_id&&current.last_message_id!==rendered){
+            if(unread(current)>0)await markRead(state.selectedId);
+            await renderMessages(state.selectedId,{scroll:'auto'});
+          }
+        }
+      }
+      window.UrediChatBadgeRefresh?.();
+    }catch(err){console.warn('Chat catch-up failed',err)}
+    finally{state.syncBusy=false}
+  }
+
+  function startFallbackSync(){
+    if(state.syncTimer)clearInterval(state.syncTimer);
+    state.syncTimer=setInterval(()=>syncChatCatchUp(),3500);
   }
 
   async function subscribeRealtime(){
@@ -417,7 +459,7 @@
           const m=payload.new||{};
           if(m.conversation_id===state.selectedId){
             if(m.sender_id!==state.user.id&&document.visibilityState==='visible')await markRead(state.selectedId);
-            setTimeout(()=>refreshSelected({messages:true}).catch(console.warn),220);
+            setTimeout(()=>renderMessages(state.selectedId,{scroll:'auto'}).catch(console.warn),70);
           }
           window.UrediChatBadgeRefresh?.();
         }catch(err){console.warn(err)}
@@ -426,10 +468,14 @@
         if((payload.new||{}).conversation_id===state.selectedId)renderMessages(state.selectedId,{scroll:false}).catch(console.warn);
       })
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'market_message_attachments'},payload=>{
-        if((payload.new||{}).conversation_id===state.selectedId)setTimeout(()=>renderMessages(state.selectedId,{scroll:true}).catch(console.warn),100);
+        if((payload.new||{}).conversation_id===state.selectedId)setTimeout(()=>renderMessages(state.selectedId,{scroll:'auto'}).catch(console.warn),80);
       })
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'market_conversations'},async()=>{
-        try{await loadConversations()}catch{}
+        try{
+          await loadConversations();
+          const c=state.conversations.find(x=>x.id===state.selectedId);
+          if(c)state.selected=c;
+        }catch{}
       })
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'market_deals'},async payload=>{
         try{
@@ -437,7 +483,13 @@
           if(state.selected&&d.listing_id===state.selected.listing_id)await refreshSelected({messages:true});
         }catch(err){console.warn(err)}
       })
-      .subscribe();
+      .subscribe(status=>{
+        if(status==='SUBSCRIBED')syncChatCatchUp();
+        if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+          setTimeout(()=>{if(document.visibilityState==='visible')subscribeRealtime().catch(console.warn)},1200);
+        }
+      });
+    startFallbackSync();
   }
 
   async function openFromUrl(){
@@ -462,7 +514,14 @@
   }));
   $('[data-real-chat-refresh]',shell)?.addEventListener('click',async()=>{try{await loadConversations();if(state.selectedId)await refreshSelected({messages:true});toast('Разговорите са обновени.')}catch(err){toast(humanError(err))}});
 
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&state.selectedId)markRead(state.selectedId)});
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'){
+      if(state.selectedId)markRead(state.selectedId);
+      syncChatCatchUp();
+    }
+  });
+  window.addEventListener('focus',()=>syncChatCatchUp());
+  window.addEventListener('online',()=>syncChatCatchUp());
   window.addEventListener('popstate',()=>{const id=new URLSearchParams(location.search).get('conversation');if(id&&state.conversations.some(c=>c.id===id))selectConversation(id,{push:false});else closeChatOnMobile()});
 
   (async()=>{

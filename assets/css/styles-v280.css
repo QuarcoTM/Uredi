@@ -5817,3 +5817,32 @@ html.real-gallery-open,body.real-gallery-open{overflow:hidden!important;overscro
   .real-chat-image-modal{padding:10px}
 }
 .real-chat-bootstrap{height:100%;display:grid;place-items:center;color:#667085;font-weight:650;background:#fff}
+
+
+/* ===== v2.81 chat reliability + desktop scrolling ===== */
+@media(min-width:761px){
+  body.messages-page .chat-shell{
+    height:calc(100dvh - 170px);
+    min-height:520px;
+    max-height:720px;
+  }
+  body.messages-page .conversation-list{
+    min-height:0;
+    overflow-y:auto;
+    overflow-x:hidden;
+    overscroll-behavior:contain;
+  }
+  body.messages-page .chat-pane{
+    min-height:0;
+    overflow:hidden;
+  }
+  body.messages-page .chat-messages{
+    flex:1 1 auto;
+    min-height:0;
+    height:0;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    overscroll-behavior:contain;
+    scrollbar-gutter:stable;
+  }
+}
