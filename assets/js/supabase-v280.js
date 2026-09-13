@@ -23,7 +23,7 @@
 
   const client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabasePublishableKey,{
     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true},
-    global:{headers:{'X-Client-Info':'uredi-web/2.81'}}
+    global:{headers:{'X-Client-Info':'uredi-web/2.84'}}
   });
   window.UrediSupabase=client;
 
@@ -2048,6 +2048,320 @@
   }
 
 
+
+  // v2.84: real account-synced Favorites + marketplace notifications.
+  let realFavoriteUserId=null;
+  let realFavoriteSession=null;
+  let realFavoriteIds=new Set();
+  let realFavoriteBusy=new Set();
+  let realFavoriteObserver=null;
+  let realFavoriteChannel=null;
+  let realNotificationUserId=null;
+  let realNotificationChannel=null;
+
+  const v284Uuid=(value)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value||''));
+
+  function v284PaintFavoriteButtons(root=document){
+    qsa('[data-favorite]',root).forEach(btn=>{
+      const id=String(btn.dataset.favorite||'');
+      if(!v284Uuid(id))return;
+      const on=realFavoriteIds.has(id);
+      btn.classList.toggle('active',on);
+      btn.setAttribute('aria-pressed',on?'true':'false');
+      btn.setAttribute('aria-label',on?'Премахни от любими':'Добави в любими');
+      if(!btn.classList.contains('fav-float') && !btn.querySelector('svg')){
+        btn.textContent=on?'Запазена':'Запази обявата';
+      }
+    });
+  }
+
+  async function v284RefreshFavoriteIds(){
+    if(!realFavoriteUserId){
+      let local=[];
+      try{local=JSON.parse(localStorage.getItem('favorites')||'[]')}catch{}
+      realFavoriteIds=new Set((Array.isArray(local)?local:[]).filter(v284Uuid));
+      v284PaintFavoriteButtons();
+      return realFavoriteIds;
+    }
+    const {data,error}=await client.from('market_favorites').select('listing_id').eq('user_id',realFavoriteUserId);
+    if(error){
+      if(!/market_favorites|schema cache/i.test(String(error.message||'')))console.warn('Favorites refresh:',error);
+      return realFavoriteIds;
+    }
+    realFavoriteIds=new Set((data||[]).map(x=>String(x.listing_id)).filter(Boolean));
+    v284PaintFavoriteButtons();
+    return realFavoriteIds;
+  }
+
+  async function v284MigrateLocalFavorites(){
+    if(!realFavoriteUserId)return;
+    let local=[];
+    try{local=JSON.parse(localStorage.getItem('favorites')||'[]')}catch{}
+    if(!Array.isArray(local)||!local.length)return;
+    const realIds=[...new Set(local.filter(v284Uuid))];
+    if(!realIds.length)return;
+    const migrated=[];
+    for(const id of realIds){
+      try{
+        const {error}=await client.rpc('market_set_favorite',{p_listing_id:id,p_favorite:true});
+        if(!error)migrated.push(id);
+      }catch{}
+    }
+    if(migrated.length){
+      const keep=local.filter(x=>!migrated.includes(x));
+      localStorage.setItem('favorites',JSON.stringify(keep));
+    }
+  }
+
+  async function v284ToggleFavorite(id){
+    id=String(id||'');
+    if(!v284Uuid(id)||realFavoriteBusy.has(id))return;
+    if(!realFavoriteUserId){
+      let arr=[];try{arr=JSON.parse(localStorage.getItem('favorites')||'[]')}catch{}
+      arr=Array.isArray(arr)?arr:[];
+      const on=arr.includes(id);
+      arr=on?arr.filter(x=>x!==id):[...arr,id];
+      localStorage.setItem('favorites',JSON.stringify(arr));
+      realFavoriteIds=new Set(arr.filter(v284Uuid));
+      v284PaintFavoriteButtons();
+      toast(on?'Премахнато от любими.':'Добавено в любими. Влез в профила си, за да се синхронизира между устройствата.');
+      if(file()==='favorites.html')await v284RenderFavoritesPage(realFavoriteSession);
+      return;
+    }
+    realFavoriteBusy.add(id);
+    const shouldAdd=!realFavoriteIds.has(id);
+    try{
+      const {error}=await client.rpc('market_set_favorite',{p_listing_id:id,p_favorite:shouldAdd});
+      if(error)throw error;
+      if(shouldAdd)realFavoriteIds.add(id);else realFavoriteIds.delete(id);
+      v284PaintFavoriteButtons();
+      toast(shouldAdd?'Добавено в любими.':'Премахнато от любими.');
+      if(file()==='favorites.html')await v284RenderFavoritesPage(realFavoriteSession);
+    }catch(err){
+      const raw=String(err?.message||err||'');
+      if(/CANNOT_FAVORITE_OWN/i.test(raw))toast('Не е необходимо да добавяш собствената си обява в Любими.');
+      else if(/LISTING_NOT_AVAILABLE/i.test(raw))toast('Тази обява вече не е активна.');
+      else toast(humanizeError(err));
+    }finally{realFavoriteBusy.delete(id)}
+  }
+
+  // Capture clicks before the old localStorage favorite handlers when the user is signed in.
+  document.addEventListener('click',e=>{
+    const btn=e.target.closest?.('[data-favorite]');
+    if(!btn||!realFavoriteUserId)return;
+    const id=btn.dataset.favorite;
+    if(!v284Uuid(id))return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    v284ToggleFavorite(id);
+  },true);
+
+  function v284FavoriteStatus(status){
+    const s=String(status||'').toLowerCase();
+    const map={active:['Активна','active'],reserved:['Резервирана','reserved'],sold:['Продадена','sold'],expired:['Изтекла','expired'],paused:['Свалена','inactive'],inactive:['Свалена','inactive'],hidden:['Свалена','inactive'],draft:['Чернова','inactive'],rejected:['Спряна','inactive'],blocked:['Спряна','inactive']};
+    return map[s]||[s?('Статус: '+s):'Недостъпна','inactive'];
+  }
+
+  function v284FavoriteCard(row,img,profile,promo){
+    const f=v260ListingFields(row),dealer=profile?.profile_type==='dealer',seller=profile?.display_name||'Продавач';
+    const [statusLabel,statusClass]=v284FavoriteStatus(row.status);
+    const active=String(row.status||'').toLowerCase()==='active';
+    const state=v260ActivePromo(promo);
+    const tier=state?.kind==='vip'?'VIP':state?.kind==='top'?'TOP':'';
+    const badge=tier?`<span class="promo-badge badge ${tier==='VIP'?'badge-vip':'badge-top'}">${tier}</span>`:'';
+    const spec=v260SpecSummary(f);
+    return `<article class="product-card real-favorite-card${active?'':' favorite-card-unavailable'}" data-listing-id="${esc(row.id)}" data-price="${Number(row.price||0)}">
+      ${badge}${!active?`<span class="favorite-status-pill ${esc(statusClass)}">${esc(statusLabel)}</span>`:''}
+      <button aria-label="Премахни от любими" aria-pressed="true" class="fav-float active" data-favorite="${esc(row.id)}"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"></path></svg></span></button>
+      <a href="listing.html?id=${encodeURIComponent(row.id)}"><img alt="${esc(row.title||'Обява')}" class="product-img" decoding="async" loading="lazy" src="${esc(v260PublicImageUrl(img))}"/></a>
+      <div class="card-body"><a href="listing.html?id=${encodeURIComponent(row.id)}"><div class="product-category-label">${esc(f.category)}</div><h3 class="product-title">${esc(row.title||'Обява')}</h3>${spec?`<div class="product-specs">${esc(spec)}</div>`:''}</a>
+      <div class="product-meta"><div class="price">${esc(v260Money(row.price))}</div><span class="location">${esc(f.city||'България')}</span></div>
+      <div class="seller-line"><span class="seller-name">${esc(seller)}</span>${dealer?'<span class="badge badge-seller-type">Търговец</span>':''}</div></div>
+    </article>`;
+  }
+
+  async function v284RenderFavoritesPage(session=realFavoriteSession){
+    if(file()!=='favorites.html')return;
+    const section=qs('[data-favorites-section]'),grid=qs('[data-real-favorites-grid]')||qs('.product-grid',section||document),empty=qs('[data-empty-template]');
+    if(!section||!grid)return;
+    const syncNote=qs('[data-favorites-sync-note]');
+    if(syncNote){
+      syncNote.hidden=!!session;
+      syncNote.innerHTML=session?'':'<strong>Гост режим.</strong> Влез в профила си, за да пазиш любимите си на всички устройства.';
+    }
+    let favoriteRows=[];
+    if(session?.user?.id){
+      const {data,error}=await client.from('market_favorites').select('listing_id,created_at').eq('user_id',session.user.id).order('created_at',{ascending:false});
+      if(error){console.warn('Favorite page:',error);grid.innerHTML='<div class="real-listings-error"><strong>Не успяхме да заредим Любими.</strong><span>Обнови страницата след малко.</span></div>';return}
+      favoriteRows=data||[];
+    }else{
+      let arr=[];try{arr=JSON.parse(localStorage.getItem('favorites')||'[]')}catch{}
+      favoriteRows=(Array.isArray(arr)?arr:[]).filter(v284Uuid).map((listing_id,i)=>({listing_id,created_at:new Date(Date.now()-i).toISOString()}));
+    }
+    const ids=favoriteRows.map(x=>x.listing_id).filter(Boolean);
+    if(!ids.length){grid.innerHTML='';section.hidden=true;if(empty){empty.style.display='block';empty.hidden=false}return}
+    section.hidden=false;if(empty){empty.style.display='none';empty.hidden=true}
+    const {data:listings,error}=await client.from('listings').select('*').in('id',ids);
+    if(error){console.warn('Favorite listings:',error);grid.innerHTML='<div class="real-listings-error"><strong>Не успяхме да заредим Любими.</strong><span>Обнови страницата след малко.</span></div>';return}
+    const rowMap=new Map((listings||[]).map(x=>[String(x.id),x]));
+    const rows=favoriteRows.map(f=>rowMap.get(String(f.listing_id))).filter(Boolean);
+    if(!rows.length){grid.innerHTML='';section.hidden=true;if(empty){empty.style.display='block';empty.hidden=false}return}
+    const sellerIds=[...new Set(rows.map(x=>x.seller_id).filter(Boolean))];
+    const [imagesRes,promosRes,profilesRes]=await Promise.all([
+      client.from('listing_images').select('*').in('listing_id',rows.map(x=>x.id)),
+      client.from('listing_promotion_state').select('listing_id,kind,expires_at,bumped_at,started_at,updated_at').in('listing_id',rows.map(x=>x.id)),
+      sellerIds.length?client.from('profiles').select('id,display_name,profile_type,city').in('id',sellerIds):Promise.resolve({data:[],error:null})
+    ]);
+    const firstImage=new Map();(imagesRes.data||[]).sort(v260ImageSort).forEach(img=>{if(!firstImage.has(img.listing_id))firstImage.set(img.listing_id,img)});
+    rows.forEach(row=>{const path=v275ImagePathsFromRow(row)[0];if(path)firstImage.set(row.id,v275PseudoImage(path))});
+    const promoMap=new Map((promosRes.data||[]).map(x=>[x.listing_id,x]));
+    const profileMap=new Map((profilesRes.data||[]).map(x=>[x.id,x]));
+    grid.innerHTML=rows.map(row=>v284FavoriteCard(row,firstImage.get(row.id),profileMap.get(row.seller_id),promoMap.get(row.id))).join('');
+    v284PaintFavoriteButtons(grid);
+  }
+
+  async function initRealFavorites(session){
+    realFavoriteSession=session||null;
+    realFavoriteUserId=session?.user?.id||null;
+    if(realFavoriteUserId)await v284MigrateLocalFavorites();
+    await v284RefreshFavoriteIds();
+    await v284RenderFavoritesPage(session);
+    if(realFavoriteObserver)realFavoriteObserver.disconnect();
+    realFavoriteObserver=new MutationObserver(()=>v284PaintFavoriteButtons());
+    realFavoriteObserver.observe(document.body,{childList:true,subtree:true});
+    if(realFavoriteUserId){
+      try{
+        if(realFavoriteChannel)await client.removeChannel(realFavoriteChannel);
+        realFavoriteChannel=client.channel(`uredi-favorites-${realFavoriteUserId}`)
+          .on('postgres_changes',{event:'*',schema:'public',table:'market_favorites',filter:`user_id=eq.${realFavoriteUserId}`},async()=>{await v284RefreshFavoriteIds();if(file()==='favorites.html')await v284RenderFavoritesPage(realFavoriteSession)})
+          .subscribe();
+      }catch(err){console.warn('Favorites realtime unavailable',err)}
+    }
+  }
+
+  function v284NotificationIcon(kind,type){
+    if(kind==='price-drop')return '↓';
+    if(kind==='favorite-sold')return '✓';
+    if(kind==='favorite-reserved')return '⏳';
+    if(kind==='favorite-active')return '↻';
+    if(kind==='favorite-deleted')return '×';
+    if(type==='ads')return '▣';
+    return '•';
+  }
+
+  function v284NotificationTime(value){
+    const d=new Date(value||Date.now());
+    if(Number.isNaN(d.getTime()))return '';
+    return d.toLocaleString('bg-BG',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  }
+
+  function v284PaintNotificationBadge(count){
+    const n=Math.max(0,Number(count)||0);
+    qsa('.header-actions a[href^="notifications.html"], .mobile-notifications[href^="notifications.html"]').forEach(link=>{
+      let badge=qs('[data-real-notification-badge]',link);
+      if(!badge){
+        badge=document.createElement('span');
+        badge.className='header-notification-badge';
+        badge.dataset.realNotificationBadge='';
+        badge.setAttribute('aria-hidden','true');
+        link.appendChild(badge);
+      }
+      if(n>0){badge.textContent=n>99?'99+':String(n);badge.classList.add('has-unread');badge.setAttribute('aria-hidden','false');link.setAttribute('aria-label',`Известия, ${n} непрочетени`)}
+      else{badge.textContent='';badge.classList.remove('has-unread');badge.setAttribute('aria-hidden','true');link.setAttribute('aria-label','Известия')}
+    });
+  }
+
+  async function v284RefreshNotificationBadge(){
+    if(!realNotificationUserId){v284PaintNotificationBadge(0);return 0}
+    const {count,error}=await client.from('market_notifications').select('id',{count:'exact',head:true}).eq('user_id',realNotificationUserId).is('read_at',null);
+    if(error){if(!/market_notifications|schema cache/i.test(String(error.message||'')))console.warn('Notification badge:',error);return 0}
+    v284PaintNotificationBadge(count||0);return count||0;
+  }
+  window.UrediNotificationBadgeRefresh=v284RefreshNotificationBadge;
+
+  async function v284MarkNotificationRead(id){
+    if(!realNotificationUserId||!id)return;
+    const {error}=await client.from('market_notifications').update({read_at:new Date().toISOString()}).eq('id',id).eq('user_id',realNotificationUserId).is('read_at',null);
+    if(error)console.warn('Notification read:',error);
+    await v284RefreshNotificationBadge();
+  }
+
+  async function v284RenderNotificationsPage(){
+    if(file()!=='notifications.html'||!realNotificationUserId)return;
+    const box=qs('[data-notification-list]'),empty=qs('[data-notifications-empty]');if(!box)return;
+    const {data,error}=await client.from('market_notifications').select('id,type,kind,title,body,href,listing_id,read_at,created_at').eq('user_id',realNotificationUserId).order('created_at',{ascending:false}).limit(100);
+    if(error){console.warn('Notifications page:',error);return}
+    box.querySelectorAll('.notification-item,.notice').forEach(x=>x.remove());
+    const rows=data||[];
+    if(empty)empty.hidden=rows.length>0;
+    rows.forEach(n=>{
+      const item=document.createElement('article');
+      item.className='notification-item real-notification-item '+(n.kind==='price-drop'?'notification-price-drop ':'')+(n.read_at?'':'is-unread');
+      item.dataset.notificationType=n.type||'system';item.dataset.marketNotificationId=n.id;
+      if(n.href)item.dataset.marketNotificationHref=n.href;
+      item.tabIndex=0;item.setAttribute('role',n.href?'link':'button');
+      item.innerHTML=`<div class="notification-icon">${esc(v284NotificationIcon(n.kind,n.type))}</div><div class="notification-copy"><strong>${esc(n.title||'Известие')}</strong><p>${esc(n.body||'')}</p><small>${esc(v284NotificationTime(n.created_at))}</small></div>${n.href?'<span class="mini-btn notification-open-hint">Виж</span>':''}`;
+      box.appendChild(item);
+    });
+    const active=qs('[data-notification-filter].active')?.dataset.notificationFilter||'all';
+    qsa('.real-notification-item',box).forEach(x=>x.hidden=active!=='all'&&x.dataset.notificationType!==active);
+  }
+
+  async function v284OpenNotification(item){
+    if(!item)return;
+    const id=item.dataset.marketNotificationId,href=item.dataset.marketNotificationHref||'';
+    if(item.classList.contains('is-unread')){
+      await v284MarkNotificationRead(id);
+      item.classList.remove('is-unread');
+    }
+    if(href)location.href=href;
+  }
+
+  document.addEventListener('click',e=>{
+    const all=e.target.closest?.('[data-real-notifications-read-all]');
+    if(all&&realNotificationUserId){
+      e.preventDefault();e.stopImmediatePropagation();
+      (async()=>{
+        busy(all,true,'Маркиране…');
+        const {error}=await client.from('market_notifications').update({read_at:new Date().toISOString()}).eq('user_id',realNotificationUserId).is('read_at',null);
+        busy(all,false);
+        if(error){toast(humanizeError(error));return}
+        await v284RefreshNotificationBadge();await v284RenderNotificationsPage();toast('Всички известия са маркирани като прочетени.');
+      })();
+      return;
+    }
+    const filter=e.target.closest?.('[data-notification-filter]');
+    if(filter&&file()==='notifications.html'){
+      qsa('[data-notification-filter]').forEach(x=>{const on=x===filter;x.classList.toggle('active',on);x.setAttribute('aria-selected',on?'true':'false')});
+      const type=filter.dataset.notificationFilter||'all';
+      qsa('.real-notification-item').forEach(x=>x.hidden=type!=='all'&&x.dataset.notificationType!==type);
+      return;
+    }
+    const item=e.target.closest?.('[data-market-notification-id]');
+    if(item&&file()==='notifications.html'){
+      e.preventDefault();v284OpenNotification(item);
+    }
+  },true);
+  document.addEventListener('keydown',e=>{
+    const item=e.target.closest?.('[data-market-notification-id]');if(!item)return;
+    if(e.key==='Enter'||e.key===' '){e.preventDefault();v284OpenNotification(item)}
+  });
+
+  async function initRealMarketplaceNotifications(session){
+    realNotificationUserId=session?.user?.id||null;
+    if(!realNotificationUserId){v284PaintNotificationBadge(0);return}
+    await v284RefreshNotificationBadge();
+    await v284RenderNotificationsPage();
+    try{
+      if(realNotificationChannel)await client.removeChannel(realNotificationChannel);
+      realNotificationChannel=client.channel(`uredi-market-notifications-${realNotificationUserId}`)
+        .on('postgres_changes',{event:'*',schema:'public',table:'market_notifications',filter:`user_id=eq.${realNotificationUserId}`},async()=>{await v284RefreshNotificationBadge();await v284RenderNotificationsPage()})
+        .subscribe();
+    }catch(err){console.warn('Notification realtime unavailable',err)}
+    window.addEventListener('focus',()=>{v284RefreshNotificationBadge();if(file()==='notifications.html')v284RenderNotificationsPage()});
+  }
+
   async function routeGuardAndSync(){
     const current=file();
     let session=null;
@@ -2081,6 +2395,8 @@
     await initPublicListings();
     await initRealListingDetail(state.session);
     await initRealChatBadge(state.session);
+    await initRealFavorites(state.session);
+    await initRealMarketplaceNotifications(state.session);
   }
 
   boot().catch(err=>{console.error(err);toast(humanizeError(err))});

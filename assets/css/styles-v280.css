@@ -5882,3 +5882,32 @@ html.real-gallery-open,body.real-gallery-open{overflow:hidden!important;overscro
     margin-bottom:14px!important;
   }
 }
+
+/* ===== v2.84 real Favorites + marketplace notifications ===== */
+.favorites-sync-note{margin-top:16px;padding:12px 14px;border:1px solid #dbe5f4;border-radius:10px;background:#f7faff;color:#4b5d78;font-size:13px}
+.real-favorite-card .product-img{object-fit:contain;background:#f6f8fb}
+.favorite-card-unavailable{opacity:.88}
+.favorite-card-unavailable .product-img{filter:saturate(.72)}
+.favorite-status-pill{position:absolute;left:10px;top:10px;z-index:4;display:inline-flex;align-items:center;min-height:26px;padding:0 9px;border-radius:7px;background:#eef2f7;border:1px solid #d6deea;color:#536078;font-size:10px;font-weight:850;letter-spacing:.02em}
+.favorite-status-pill.sold{background:#eef1f5;color:#435069}
+.favorite-status-pill.reserved{background:#fff7e8;border-color:#f2d7a7;color:#8a5a0a}
+.favorite-status-pill.expired,.favorite-status-pill.inactive{background:#fff4f2;border-color:#f1d2cd;color:#a43f37}
+.real-favorite-card .promo-badge+.favorite-status-pill{top:42px}
+
+.header-notification-badge{display:none;position:absolute;right:0;top:0;min-width:17px;height:17px;padding:0 4px;align-items:center;justify-content:center;border:2px solid #fff;border-radius:999px;background:#d6403a;color:#fff;font-size:8px;font-weight:900;line-height:1;z-index:3}
+.header-notification-badge.has-unread{display:flex}
+.notification-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.notification-read-all{height:36px;padding:0 12px;font-size:12px}
+.real-notification-item{cursor:pointer;outline:none}
+.real-notification-item:hover{background:#f8fbff}
+.real-notification-item:focus-visible{box-shadow:inset 0 0 0 2px #7aa8ed}
+.real-notification-item.is-unread{position:relative;background:#f6f9ff}
+.real-notification-item.is-unread:before{content:"";position:absolute;left:5px;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--blue)}
+.notification-open-hint{display:inline-flex;align-items:center;justify-content:center;pointer-events:none}
+
+@media(max-width:760px){
+  .notification-toolbar{align-items:stretch}
+  .notification-read-all{width:100%;height:40px}
+  .favorite-status-pill{left:8px;top:8px}
+  .real-favorite-card .promo-badge+.favorite-status-pill{top:40px}
+}
