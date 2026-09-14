@@ -23,7 +23,7 @@
 
   const client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabasePublishableKey,{
     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true},
-    global:{headers:{'X-Client-Info':'uredi-web/2.86'}}
+    global:{headers:{'X-Client-Info':'uredi-web/2.88'}}
   });
   window.UrediSupabase=client;
 
@@ -1691,6 +1691,7 @@
     rows.forEach(row=>{const path=v275ImagePathsFromRow(row)[0];if(path)firstImage.set(row.id,v275PseudoImage(path))});
     const promoMap=new Map((promosRes.data||[]).map(x=>[x.listing_id,x])),profileMap=new Map((profilesRes.data||[]).map(x=>[x.id,x]));
     list.innerHTML=rows.map(row=>v260ListingRowHTML(row,firstImage.get(row.id),profileMap.get(row.seller_id),promoMap.get(row.id))).join('');
+    await v288HydratePriceHistory(list);
     // Add real brands to the filter without removing the curated defaults.
     const brandSelect=qs('#brandFilter');if(brandSelect){const existing=new Set([...brandSelect.options].map(o=>v260Norm(o.value||o.textContent)));rows.forEach(r=>{const b=v260ListingFields(r).brand;if(b&&!existing.has(v260Norm(b))){const o=document.createElement('option');o.value=b;o.textContent=b;brandSelect.appendChild(o);existing.add(v260Norm(b))}})}
     if(skeleton)skeleton.classList.add('is-hidden');list.dataset.supabaseLoading='0';v260BindPublicFilters();
@@ -1707,7 +1708,7 @@
     const seller=profile?.display_name||'Продавач';
     const dealer=profile?.profile_type==='dealer';
     const spec=v260SpecSummary(f);
-    return `<article class="product-card real-home-card" data-real-home-listing="${esc(row.id)}">
+    return `<article class="product-card real-home-card" data-real-home-listing="${esc(row.id)}" data-listing-id="${esc(row.id)}" data-price="${Number(row.price||0)}">
       ${badge}<button aria-label="Добави в любими" class="fav-float" data-favorite="${esc(row.id)}"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"></path></svg></span></button>
       <a href="listing.html?id=${encodeURIComponent(row.id)}"><img alt="${esc(row.title||'Обява')}" class="product-img" decoding="async" loading="lazy" src="${esc(v260PublicImageUrl(img))}"/></a>
       <div class="card-body"><a href="listing.html?id=${encodeURIComponent(row.id)}"><div class="product-category-label">${esc(f.category)}</div><h3 class="product-title">${esc(row.title||'Обява')}</h3>${spec?`<div class="product-specs">${esc(spec)}</div>`:''}</a>
@@ -1745,6 +1746,7 @@
         .sort((a,b)=>new Date(b.state.updated_at||b.state.started_at||b.row.created_at||0)-new Date(a.state.updated_at||a.state.started_at||a.row.created_at||0))
         .slice(0,4);
       grid.innerHTML=selected.map(x=>v276HomeFeaturedCard(x.row,firstImage.get(x.row.id),profileMap.get(x.row.seller_id),x.state)).join('');
+      await v288HydratePriceHistory(grid);
       const subtitle=qs('[data-featured-promo-subtitle]',section);
       if(subtitle)subtitle.textContent=maxRank===3?'VIP обяви':maxRank===2?'TOP обяви':'Наскоро изкачени обяви';
       section.hidden=false;
@@ -1805,13 +1807,14 @@
     const chatOnly=!isOwnListing&&!phone?`<div class="real-chat-only-note"><span class="real-chat-only-icon" aria-hidden="true">●</span><span>Контактът е достъпен само чрез вътрешния чат.</span></div>`:'';
     const messageClass=phone?'primary-btn message-action-button':'primary-btn message-action-button real-chat-only-primary';
     const primaryContactAction=isOwnListing?`<a class="primary-btn message-action-button" href="edit-ad.html?id=${encodeURIComponent(id)}">Редактирай обявата</a>`:`<a class="${messageClass}" href="messages.html?listing=${encodeURIComponent(id)}&seller=${encodeURIComponent(row.seller_id||'')}">Съобщение</a>`;
-    main.innerHTML=`<div class="container real-listing-detail"><div class="breadcrumb"><a href="index.html">Начало</a><span>/</span><a href="listings.html?category=${encodeURIComponent(fields.category)}">${esc(fields.category)}</a><span>/</span><span>${esc(row.title||'Обява')}</span></div>
+    main.innerHTML=`<div class="container real-listing-detail" data-listing-id="${esc(id)}" data-price="${Number(row.price||0)}"><div class="breadcrumb"><a href="index.html">Начало</a><span>/</span><a href="listings.html?category=${encodeURIComponent(fields.category)}">${esc(fields.category)}</a><span>/</span><span>${esc(row.title||'Обява')}</span></div>
       <div class="detail-grid"><section><div class="gallery-main real-gallery-main" data-real-gallery-main role="button" tabindex="0" aria-label="Отвори снимката на цял екран"><img alt="${esc(row.title||'Обява')}" src="${esc(gallery[0])}" fetchpriority="high"><div class="gallery-zoom-hint" aria-hidden="true">⛶</div><div class="gallery-counter" data-real-gallery-counter>1/${gallery.length}</div></div><div class="thumbs real-gallery-thumbs">${thumbs}</div>
       <div class="description-card"><h2>Описание</h2><p>${esc(fields.description||'Няма добавено описание.')}</p><h2 style="margin-top:18px">Забележки и дефекти</h2><p class="muted">${esc(fields.defects||'Няма посочени забележки.')}</p></div>
       <div class="spec-card"><div class="spec-head">Характеристики</div><div class="spec-grid">${v260SpecRows(fields)}</div></div>
       <div class="listing-action-panel"><div class="listing-action-panel-head">Действия по обявата</div><div class="detail-actions">${primaryContactAction}${phoneButton}<button class="secondary-btn" data-favorite="${esc(id)}" type="button">Запази обявата</button><button class="secondary-btn" data-real-share type="button">Сподели обявата</button></div>${chatOnly}</div></section>
-      <aside class="detail-side"><div class="detail-card"><div class="real-detail-tags"><span class="tag">${esc(fields.category)}</span>${badge}</div><div class="listing-title-row"><h1>${esc(row.title||'Обява')}</h1></div>${v260SpecSummary(fields)?`<div class="muted small">${esc(v260SpecSummary(fields))}</div>`:''}<div class="listing-updated-meta">Публикувана ${esc(v260RelativeDate(row.published_at||row.created_at))}</div><div class="detail-price">${esc(v260Money(row.price))}</div><div class="real-detail-location">${esc(fields.city||'България')}</div></div>
+      <aside class="detail-side"><div class="detail-card"><div class="real-detail-tags"><span class="tag">${esc(fields.category)}</span>${badge}</div><div class="listing-title-row"><h1>${esc(row.title||'Обява')}</h1></div>${v260SpecSummary(fields)?`<div class="muted small">${esc(v260SpecSummary(fields))}</div>`:''}<div class="listing-updated-meta">Публикувана ${esc(v260RelativeDate(row.published_at||row.created_at))}</div><div class="price-with-trend detail-price-with-trend"><div class="detail-price">${esc(v260Money(row.price))}</div></div><div class="real-detail-location">${esc(fields.city||'България')}</div></div>
       <div class="seller-card"><div class="seller-head"><div class="avatar">${esc(v260Initials(seller))}</div><div><strong>${esc(seller)}</strong><span class="seller-type-inline"><span>${dealer?'Търговец':'Частно лице'}${profile.city?' · '+esc(profile.city):''}</span></span></div></div>${!isOwnListing&&phone?`<a class="secondary-btn seller-phone-bottom phone-action-button" href="${esc(phoneHref)}">Обади се</a>`:''}<a class="secondary-btn" href="seller.html?id=${encodeURIComponent(row.seller_id||'')}" style="width:100%;margin-top:10px">Виж профила</a><div class="seller-secondary-actions"><a class="secondary-btn listing-report-button" href="report.html?type=listing&listing=${encodeURIComponent(id)}">Докладвай обявата</a></div></div></aside></div></div>`;
+    await v288HydratePriceHistory(main);
 
     let currentIndex=0;
     const setCurrent=i=>{
@@ -2086,6 +2089,121 @@
 
 
 
+  // v2.88: real price history for live Supabase listings.
+  const v288PriceHistoryCache=new Map();
+
+  function v288PriceHistoryDate(value){
+    const d=new Date(value||Date.now());
+    if(Number.isNaN(d.getTime()))return '';
+    return [String(d.getDate()).padStart(2,'0'),String(d.getMonth()+1).padStart(2,'0'),d.getFullYear()].join('.');
+  }
+
+  function v288PriceHistoryText(value){
+    const n=Number(value);
+    if(!Number.isFinite(n)||n<=0)return '';
+    return `${Number.isInteger(n)?n:n.toFixed(2).replace(/0+$/,'').replace(/\.$/,'')} €`;
+  }
+
+  function v288CompactPriceRows(rows,currentPrice){
+    const out=[];
+    (rows||[]).slice().sort((a,b)=>new Date(a.changed_at||0)-new Date(b.changed_at||0)).forEach(row=>{
+      const price=Number(row.price);
+      if(!Number.isFinite(price)||price<=0)return;
+      const last=out[out.length-1];
+      if(last&&Math.abs(last.price-price)<0.001){
+        // Keep the newest timestamp for consecutive identical snapshots.
+        last.changed_at=row.changed_at||last.changed_at;
+      }else out.push({price,changed_at:row.changed_at});
+    });
+    const current=Number(currentPrice);
+    if(Number.isFinite(current)&&current>0){
+      const last=out[out.length-1];
+      if(!last||Math.abs(last.price-current)>0.001)out.push({price:current,changed_at:new Date().toISOString()});
+    }
+    return out;
+  }
+
+  function v288CurrentPriceForNode(node){
+    const raw=node?.dataset?.price;
+    const direct=Number(raw);
+    if(Number.isFinite(direct)&&direct>0)return direct;
+    const txt=node?.querySelector?.('.detail-price,.price')?.textContent||'';
+    const parsed=parseFloat(String(txt).replace(/[^\d.,]/g,'').replace(',','.'));
+    return Number.isFinite(parsed)?parsed:0;
+  }
+
+  function v288ApplyPriceHistory(node,rows){
+    if(!node)return;
+    const priceEl=node.querySelector('.detail-price,.price');
+    if(!priceEl)return;
+    const current=v288CurrentPriceForNode(node);
+    const history=v288CompactPriceRows(rows,current);
+    let wrap=priceEl.closest('.price-with-trend');
+    if(!wrap){
+      wrap=document.createElement('div');
+      wrap.className=priceEl.classList.contains('detail-price')?'price-with-trend detail-price-with-trend':'price-with-trend';
+      priceEl.parentNode.insertBefore(wrap,priceEl);
+      wrap.appendChild(priceEl);
+    }
+    let btn=wrap.querySelector('[data-real-price-history]');
+    if(history.length<2){if(btn)btn.remove();return}
+    const prev=history[history.length-2].price,currentRow=history[history.length-1].price;
+    if(Math.abs(prev-currentRow)<0.001){if(btn)btn.remove();return}
+    if(!btn){
+      btn=document.createElement('button');
+      btn.type='button';
+      btn.className='price-trend';
+      btn.dataset.realPriceHistory='';
+      btn.dataset.priceHistory='';
+      btn.setAttribute('title','История на цената');
+      wrap.appendChild(btn);
+    }
+    const direction=currentRow<prev?'down':'up';
+    btn.hidden=false;
+    btn.classList.remove('price-trend-down','price-trend-up');
+    btn.classList.add(direction==='down'?'price-trend-down':'price-trend-up');
+    btn.dataset.priceTrend=direction;
+    btn.dataset.currentPrice=v288PriceHistoryText(currentRow);
+    btn.dataset.currentPriceDate=v288PriceHistoryDate(history[history.length-1].changed_at);
+    btn.dataset.priceHistory=history.map(x=>`${v288PriceHistoryText(x.price)}|${v288PriceHistoryDate(x.changed_at)}`).join(';');
+    const label=direction==='down'?'Цената е намалена. Виж историята на цената.':'Цената е повишена. Виж историята на цената.';
+    btn.setAttribute('aria-label',label);
+    btn.title=(direction==='down'?'Цената е намалена':'Цената е повишена')+' · История на цената';
+  }
+
+  async function v288HydratePriceHistory(root=document){
+    const nodes=[];
+    if(root?.matches?.('[data-listing-id]'))nodes.push(root);
+    qsa('[data-listing-id]',root||document).forEach(x=>nodes.push(x));
+    if(document.body?.dataset?.listingId&&!nodes.some(x=>String(x.dataset.listingId||'')===String(document.body.dataset.listingId))){
+      const detail=(root||document).querySelector?.('.real-listing-detail');
+      if(detail){detail.dataset.listingId=document.body.dataset.listingId;nodes.push(detail)}
+    }
+    const uniq=[...new Map(nodes.map(x=>[String(x.dataset.listingId||''),x])).entries()].filter(([id])=>v284Uuid(id));
+    if(!uniq.length)return;
+    const missing=uniq.map(([id])=>id).filter(id=>!v288PriceHistoryCache.has(id));
+    if(missing.length){
+      const {data,error}=await client.from('market_listing_price_history').select('listing_id,price,changed_at').in('listing_id',missing).order('changed_at',{ascending:true});
+      if(error){
+        if(!/market_listing_price_history|schema cache/i.test(String(error.message||'')))console.warn('Price history:',error);
+        return;
+      }
+      missing.forEach(id=>v288PriceHistoryCache.set(id,[]));
+      (data||[]).forEach(row=>{
+        const id=String(row.listing_id||'');
+        if(!v288PriceHistoryCache.has(id))v288PriceHistoryCache.set(id,[]);
+        v288PriceHistoryCache.get(id).push(row);
+      });
+    }
+    uniq.forEach(([id,node])=>v288ApplyPriceHistory(node,v288PriceHistoryCache.get(id)||[]));
+  }
+  window.UrediPriceHistoryRefresh=async(listingId)=>{
+    if(listingId)v288PriceHistoryCache.delete(String(listingId));else v288PriceHistoryCache.clear();
+    await v288HydratePriceHistory(document);
+  };
+
+
+
   // v2.84: real account-synced Favorites + marketplace notifications.
   let realFavoriteUserId=null;
   let realFavoriteSession=null;
@@ -2269,6 +2387,7 @@
     grid.innerHTML=rows.map(row=>v284FavoriteCard(row,firstImage.get(row.id),profileMap.get(row.seller_id),promoMap.get(row.id))).join('');
     showSection();hideEmpty();
     v284PaintFavoriteButtons(grid);
+    await v288HydratePriceHistory(grid);
   }
 
   async function initRealFavorites(session){
