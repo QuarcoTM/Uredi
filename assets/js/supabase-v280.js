@@ -23,7 +23,7 @@
 
   const client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabasePublishableKey,{
     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true},
-    global:{headers:{'X-Client-Info':'uredi-web/2.84'}}
+    global:{headers:{'X-Client-Info':'uredi-web/2.85'}}
   });
   window.UrediSupabase=client;
 
@@ -315,21 +315,58 @@
     if(city)city.value=p.city||'';
     const showPhone=qs('.profile-toggle-input');if(showPhone)showPhone.checked=!!pr.show_phone;
     qs('[data-profile-save]')?.addEventListener('click',async e=>{
-      const displayName=name?.value.trim()||'';
-      const cityValue=city?.value.trim()||'';
-      if(displayName.length<2||displayName.length>40){toast('Потребителското име трябва да е между 2 и 40 символа.');return}
-      if(cityValue.length<2||cityValue.length>60){toast('Въведи населено място.');return}
-      const phoneValue=phone?.value.trim()||'';
+      const saveBtn=e.currentTarget;
+      const displayName=String(name?.value||'').trim();
+      const cityValue=String(city?.value||'').trim();
+      const nameLength=Array.from(displayName).length;
+      const cityLength=Array.from(cityValue).length;
+      if(nameLength<2||nameLength>40){toast('Потребителското име трябва да е между 2 и 40 символа.');return}
+      if(/[\u0000-\u001F\u007F]/.test(displayName)){toast('Потребителското име съдържа непозволен контролен символ.');return}
+      if(cityLength<2||cityLength>60){toast('Въведи населено място.');return}
+      const phoneValue=String(phone?.value||'').trim();
       if(phoneValue&&!/^\d{6,15}$/.test(phoneValue)){toast('Телефонът трябва да съдържа между 6 и 15 цифри.');return}
-      busy(e.currentTarget,true,'Запазване…');
-      const [a,b]=await Promise.all([
-        client.from('profiles').update({display_name:displayName,city:cityValue}).eq('id',session.user.id),
-        client.from('profile_private').update({phone:phoneValue||null,show_phone:!!showPhone?.checked}).eq('user_id',session.user.id)
-      ]);
-      busy(e.currentTarget,false);
-      if(a.error||b.error){toast(humanizeError(a.error||b.error));return}
-      try{await client.auth.updateUser({data:{display_name:displayName,city:cityValue}})}catch(err){console.warn('Profile metadata sync skipped',err)}
-      await syncLegacyUser(await getSession());toast('Промените са запазени.');
+      busy(saveBtn,true,'Запазване…');
+      try{
+        let saved=false;
+        // v2.85: one server-side operation avoids the Safari/PostgREST parallel-update error
+        // seen on profile edits and validates the public name without restricting letters/symbols.
+        const rpc=await client.rpc('market_update_my_profile_v285',{
+          p_display_name:displayName,
+          p_city:cityValue,
+          p_phone:phoneValue||null,
+          p_show_phone:!!showPhone?.checked
+        });
+        if(!rpc.error){
+          saved=true;
+        }else if(/market_update_my_profile_v285|schema cache|could not find the function|function .* does not exist/i.test(String(rpc.error.message||''))){
+          // Safe fallback while the SQL patch is being applied: update sequentially, never Promise.all.
+          const profileRes=await client.from('profiles').update({display_name:displayName,city:cityValue}).eq('id',session.user.id);
+          if(profileRes.error)throw profileRes.error;
+          const phoneChanged=(phoneValue||'')!==String(pr.phone||'') || (!!showPhone?.checked)!==!!pr.show_phone;
+          if(phoneChanged){
+            const privateRes=await client.from('profile_private').update({phone:phoneValue||null,show_phone:!!showPhone?.checked}).eq('user_id',session.user.id);
+            if(privateRes.error)throw privateRes.error;
+          }
+          saved=true;
+        }else{
+          throw rpc.error;
+        }
+        if(!saved)throw new Error('Профилът не беше запазен.');
+        try{await client.auth.updateUser({data:{display_name:displayName,city:cityValue}})}catch(err){console.warn('Profile metadata sync skipped',err)}
+        p.display_name=displayName;p.city=cityValue;pr.phone=phoneValue||null;pr.show_phone=!!showPhone?.checked;
+        window.MarketMonetization?.setCurrentUser?.({
+          id:session.user.id,
+          name:displayName,
+          type:p.profile_type==='dealer'?'dealer':'private',
+          email:session.user.email||''
+        });
+        toast('Промените са запазени.');
+      }catch(err){
+        console.error('Profile save failed',err);
+        toast(humanizeError(err));
+      }finally{
+        busy(saveBtn,false);
+      }
     });
   }
 
