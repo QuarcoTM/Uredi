@@ -2228,6 +2228,12 @@
     if(file()!=='favorites.html')return;
     const section=qs('[data-favorites-section]'),grid=qs('[data-real-favorites-grid]')||qs('.product-grid',section||document),empty=qs('[data-empty-template]');
     if(!section||!grid)return;
+    // v2.87: the legacy guest-favorites renderer may leave an inline display:none
+    // before Supabase finishes loading. Always take ownership of visibility here.
+    const showSection=()=>{section.hidden=false;section.style.removeProperty('display')};
+    const hideSection=()=>{section.hidden=true;section.style.display='none'};
+    const showEmpty=()=>{if(empty){empty.hidden=false;empty.style.display='block'}};
+    const hideEmpty=()=>{if(empty){empty.hidden=true;empty.style.display='none'}};
     const syncNote=qs('[data-favorites-sync-note]');
     if(syncNote){
       syncNote.hidden=!!session;
@@ -2236,20 +2242,20 @@
     let favoriteRows=[];
     if(session?.user?.id){
       const {data,error}=await client.from('market_favorites').select('listing_id,created_at').eq('user_id',session.user.id).order('created_at',{ascending:false});
-      if(error){console.warn('Favorite page:',error);grid.innerHTML='<div class="real-listings-error"><strong>Не успяхме да заредим Любими.</strong><span>Обнови страницата след малко.</span></div>';return}
+      if(error){console.warn('Favorite page:',error);showSection();hideEmpty();grid.innerHTML='<div class="real-listings-error"><strong>Не успяхме да заредим Любими.</strong><span>Обнови страницата след малко.</span></div>';return}
       favoriteRows=data||[];
     }else{
       let arr=[];try{arr=JSON.parse(localStorage.getItem('favorites')||'[]')}catch{}
       favoriteRows=(Array.isArray(arr)?arr:[]).filter(v284Uuid).map((listing_id,i)=>({listing_id,created_at:new Date(Date.now()-i).toISOString()}));
     }
     const ids=favoriteRows.map(x=>x.listing_id).filter(Boolean);
-    if(!ids.length){grid.innerHTML='';section.hidden=true;if(empty){empty.style.display='block';empty.hidden=false}return}
-    section.hidden=false;if(empty){empty.style.display='none';empty.hidden=true}
+    if(!ids.length){grid.innerHTML='';hideSection();showEmpty();return}
+    showSection();hideEmpty();
     const {data:listings,error}=await client.from('listings').select('*').in('id',ids);
-    if(error){console.warn('Favorite listings:',error);grid.innerHTML='<div class="real-listings-error"><strong>Не успяхме да заредим Любими.</strong><span>Обнови страницата след малко.</span></div>';return}
+    if(error){console.warn('Favorite listings:',error);showSection();hideEmpty();grid.innerHTML='<div class="real-listings-error"><strong>Не успяхме да заредим Любими.</strong><span>Обнови страницата след малко.</span></div>';return}
     const rowMap=new Map((listings||[]).map(x=>[String(x.id),x]));
     const rows=favoriteRows.map(f=>rowMap.get(String(f.listing_id))).filter(Boolean);
-    if(!rows.length){grid.innerHTML='';section.hidden=true;if(empty){empty.style.display='block';empty.hidden=false}return}
+    if(!rows.length){grid.innerHTML='';hideSection();showEmpty();return}
     const sellerIds=[...new Set(rows.map(x=>x.seller_id).filter(Boolean))];
     const [imagesRes,promosRes,profilesRes]=await Promise.all([
       client.from('listing_images').select('*').in('listing_id',rows.map(x=>x.id)),
@@ -2261,6 +2267,7 @@
     const promoMap=new Map((promosRes.data||[]).map(x=>[x.listing_id,x]));
     const profileMap=new Map((profilesRes.data||[]).map(x=>[x.id,x]));
     grid.innerHTML=rows.map(row=>v284FavoriteCard(row,firstImage.get(row.id),profileMap.get(row.seller_id),promoMap.get(row.id))).join('');
+    showSection();hideEmpty();
     v284PaintFavoriteButtons(grid);
   }
 
@@ -2405,6 +2412,15 @@
     window.addEventListener('focus',()=>{v284RefreshNotificationBadge();if(file()==='notifications.html')v284RenderNotificationsPage()});
   }
 
+  function v287SyncBetaCampaignVisibility(session){
+    const signedIn=!!session?.user?.id;
+    qsa('[data-beta-public-campaign]').forEach(section=>{
+      section.hidden=signedIn;
+      if(signedIn)section.style.display='none';
+      else section.style.removeProperty('display');
+    });
+  }
+
   async function routeGuardAndSync(){
     const current=file();
     let session=null;
@@ -2427,6 +2443,7 @@
     initVerifyEmail();
     const state=await routeGuardAndSync();
     if(state?.redirected)return;
+    v287SyncBetaCampaignVisibility(state.session);
     await initProfilePage(state.session,state.account);
     await initProfileEdit(state.session,state.account);
     await initAccountSecurity(state.session);
