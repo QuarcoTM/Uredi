@@ -5911,3 +5911,12 @@ html.real-gallery-open,body.real-gallery-open{overflow:hidden!important;overscro
   .favorite-status-pill{left:8px;top:8px}
   .real-favorite-card .promo-badge+.favorite-status-pill{top:40px}
 }
+
+
+/* ===== v2.86 desktop Favorites visibility ===== */
+@media (min-width:761px){
+  /* app-v280 marks the header heart as mobile-favorite; keep the same link visible on desktop too. */
+  .header-actions a[href="favorites.html"].mobile-favorite{
+    display:flex !important;
+  }
+}

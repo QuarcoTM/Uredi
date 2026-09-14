@@ -23,7 +23,7 @@
 
   const client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabasePublishableKey,{
     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true},
-    global:{headers:{'X-Client-Info':'uredi-web/2.85'}}
+    global:{headers:{'X-Client-Info':'uredi-web/2.86'}}
   });
   window.UrediSupabase=client;
 
@@ -2107,7 +2107,8 @@
       btn.setAttribute('aria-pressed',on?'true':'false');
       btn.setAttribute('aria-label',on?'Премахни от любими':'Добави в любими');
       if(!btn.classList.contains('fav-float') && !btn.querySelector('svg')){
-        btn.textContent=on?'Запазена':'Запази обявата';
+        const label=on?'Запазена':'Запази обявата';
+        if(btn.textContent!==label)btn.textContent=label;
       }
     });
   }
@@ -2168,11 +2169,14 @@
     realFavoriteBusy.add(id);
     const shouldAdd=!realFavoriteIds.has(id);
     try{
-      const {error}=await client.rpc('market_set_favorite',{p_listing_id:id,p_favorite:shouldAdd});
+      const {data,error}=await client.rpc('market_set_favorite',{p_listing_id:id,p_favorite:shouldAdd});
       if(error)throw error;
-      if(shouldAdd)realFavoriteIds.add(id);else realFavoriteIds.delete(id);
+      // Trust the state returned by the backend, then refresh from the table.
+      const saved=typeof data==='boolean'?data:shouldAdd;
+      if(saved)realFavoriteIds.add(id);else realFavoriteIds.delete(id);
       v284PaintFavoriteButtons();
-      toast(shouldAdd?'Добавено в любими.':'Премахнато от любими.');
+      await v284RefreshFavoriteIds();
+      toast(saved?'Добавено в любими.':'Премахнато от любими.');
       if(file()==='favorites.html')await v284RenderFavoritesPage(realFavoriteSession);
     }catch(err){
       const raw=String(err?.message||err||'');
@@ -2182,10 +2186,12 @@
     }finally{realFavoriteBusy.delete(id)}
   }
 
-  // Capture clicks before the old localStorage favorite handlers when the user is signed in.
+  // v2.86: one favorite handler for both guests and signed-in users.
+  // Capture every real listing favorite click before legacy localStorage handlers,
+  // otherwise some pages can toggle the same favorite twice and end up unchanged.
   document.addEventListener('click',e=>{
     const btn=e.target.closest?.('[data-favorite]');
-    if(!btn||!realFavoriteUserId)return;
+    if(!btn)return;
     const id=btn.dataset.favorite;
     if(!v284Uuid(id))return;
     e.preventDefault();
