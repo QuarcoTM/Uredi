@@ -1,4 +1,4 @@
-const CACHE='tehnika-v2.88';
+const CACHE='tehnika-v2.90';
 const CORE=[
   './index.html',
   './profile-promotions.html',
@@ -125,3 +125,4 @@ self.addEventListener('notificationclick',event=>{
     return clients.openWindow(url);
   }));
 });
+
