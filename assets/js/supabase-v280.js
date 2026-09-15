@@ -2629,12 +2629,14 @@
 
   async function initAdminAccess(session){
     if(file()!=='admin-access.html'||!session)return;
+    const requested=new URLSearchParams(location.search).get('next');
+    const destination=['admin/ads.html','admin/moderation.html','admin/reports.html','admin/promotions-prepare.html'].includes(requested)?requested:'admin/promotions-prepare.html';
     const status=qs('[data-admin-status]'),button=qs('[data-admin-verify]');
     const access=await client.rpc('is_my_admin_account');
     if(access.error||access.data!==true){status.textContent='Този профил няма администраторски достъп.';return}
     const {data:aal,error}=await client.auth.mfa.getAuthenticatorAssuranceLevel();
     if(error){status.textContent='Не успяхме да проверим достъпа. Презареди страницата.';return}
-    if(aal?.currentLevel==='aal2'){location.replace('admin/promotions-prepare.html');return}
+    if(aal?.currentLevel==='aal2'){location.replace(destination);return}
     const {data:factors,error:fError}=await client.auth.mfa.listFactors();
     if(fError){status.textContent='Не успяхме да заредим защитата. Презареди страницата.';return}
     const enrolled=(factors?.totp||[]).some(f=>f.status==='verified');
@@ -2643,7 +2645,7 @@
     button.onclick=async()=>{
       busy(button,true);
       try{
-        if(enrolled){await ensureMfaIfEnrolled();location.replace('admin/promotions-prepare.html')}
+        if(enrolled){await ensureMfaIfEnrolled();location.replace(destination)}
         else await startMfaEnrollment();
       }catch(err){if(err.message!=='MFA_CANCELLED')toast(humanizeError(err))}
       finally{busy(button,false)}
