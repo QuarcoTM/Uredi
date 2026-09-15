@@ -7,9 +7,9 @@
   const tell=m=>{status.textContent=m};
   async function load(){
     const auth=await client.auth.getUser();
-    if(!auth.data?.user){tell('Влез в профила си и отвори страницата отново.');return}
+    if(!auth.data?.user){location.replace('../admin-access.html');return}
     const aal=await client.auth.mfa.getAuthenticatorAssuranceLevel();
-    if(aal.data?.currentLevel!=='aal2'){tell('За запис е нужен администраторски профил с двустепенно потвърждение. Настройките остават заключени.');return}
+    if(aal.data?.currentLevel!=='aal2'){location.replace('../admin-access.html');return}
     const results=await Promise.all(['promotion_products','promotion_packages','promotion_price_campaigns'].map(t=>client.from(t).select('*')));
     if(results.some(r=>r.error))throw results.find(r=>r.error).error;
     const [products,packages,campaigns]=results.map(r=>r.data||[]);
