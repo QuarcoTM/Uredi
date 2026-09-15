@@ -1885,7 +1885,7 @@
       <div class="spec-card"><div class="spec-head">Характеристики</div><div class="spec-grid">${v260SpecRows(fields)}</div></div>
       <div class="listing-action-panel"><div class="listing-action-panel-head">Действия по обявата</div><div class="detail-actions">${primaryContactAction}${phoneButton}<button class="secondary-btn" data-favorite="${esc(id)}" type="button">Запази обявата</button><button class="secondary-btn" data-real-share type="button">Сподели обявата</button></div>${chatOnly}</div></section>
       <aside class="detail-side"><div class="detail-card"><div class="real-detail-tags"><span class="tag">${esc(fields.category)}</span>${badge}</div><div class="listing-title-row"><h1>${esc(row.title||'Обява')}</h1></div>${v260SpecSummary(fields)?`<div class="muted small">${esc(v260SpecSummary(fields))}</div>`:''}<div class="listing-updated-meta">Публикувана ${esc(v260RelativeDate(row.published_at||row.created_at))}</div><div class="price-with-trend detail-price-with-trend"><div class="detail-price">${esc(v260Money(row.price))}</div></div><div class="real-detail-location">${esc(fields.city||'България')}</div></div>
-      <div class="seller-card"><div class="seller-head"><div class="avatar">${esc(v260Initials(seller))}</div><div><strong>${esc(seller)}</strong><span class="seller-type-inline"><span>${dealer?'Търговец':'Частно лице'}${profile.city?' · '+esc(profile.city):''}</span></span></div></div>${!isOwnListing&&phone?`<a class="secondary-btn seller-phone-bottom phone-action-button" href="${esc(phoneHref)}">Обади се</a>`:''}<a class="secondary-btn" href="seller.html?id=${encodeURIComponent(row.seller_id||'')}" style="width:100%;margin-top:10px">Виж профила</a><div class="seller-secondary-actions"><a class="secondary-btn listing-report-button" href="report.html?type=listing&listing=${encodeURIComponent(id)}">Докладвай обявата</a></div></div></aside></div></div>`;
+      <div class="seller-card"><div class="seller-head"><div class="avatar">${esc(v260Initials(seller))}</div><div><strong>${esc(seller)}</strong><span class="seller-type-inline"><span>${dealer?'Търговец':'Частно лице'}${profile.city?' · '+esc(profile.city):''}</span></span></div></div>${!isOwnListing&&phone?`<a class="secondary-btn seller-phone-bottom phone-action-button" href="${esc(phoneHref)}">Обади се</a>`:''}<a class="secondary-btn" href="seller.html?id=${encodeURIComponent(row.seller_id||'')}" style="width:100%;margin-top:10px">Виж профила</a>${!isOwnListing?`<div class="seller-secondary-actions"><a class="secondary-btn listing-report-button" href="report.html?type=listing&listing=${encodeURIComponent(id)}">Докладвай обявата</a></div>`:''}</div></aside></div></div>`;
     await v288HydratePriceHistory(main);
 
     let currentIndex=0;
@@ -2652,6 +2652,53 @@
     };
   }
 
+  async function initRealReportV294(session){
+    if(file()!=='report.html')return;
+    const button=qs('[data-submit-report]'),feedback=qs('[data-report-feedback]');
+    if(!button||!feedback)return;
+    const show=(message,ok=false)=>{feedback.hidden=false;feedback.className='moderation-feedback '+(ok?'ok':'error');feedback.textContent=message};
+    if(!session?.user?.id){show('Влез в профила си, за да изпратиш сигнал.');return}
+    const params=new URLSearchParams(location.search);
+    const candidates=[['listing','p_listing_id'],['user','p_reported_user_id'],['conversation','p_conversation_id'],['message','p_message_id'],['review','p_review_id']].filter(([key])=>params.get(key));
+    if(candidates.length!==1||!v284Uuid(params.get(candidates[0]?.[0]))){show('Не е избрана валидна обява или профил. Отвори „Докладвай“ от съответната страница.');return}
+    const [key,param]=candidates[0],id=params.get(key);
+    const errors={
+      'Cannot report own listing':'Не можеш да докладваш собствената си обява.',
+      'Cannot report yourself':'Не можеш да докладваш собствения си профил.',
+      'Too many reports. Please try again later.':'Достигна лимита за сигнали. Опитай по-късно.',
+      'Listing not found':'Обявата вече не е налична.',
+      'Authentication required':'Влез отново в профила си, за да изпратиш сигнала.',
+      'Conversation not accessible':'Нямаш достъп до този разговор.',
+      'Message cannot be reported':'Това съобщение не може да бъде докладвано.',
+      'Review cannot be reported':'Този отзив не може да бъде докладван.'
+    };
+    if(key==='listing'){
+      const r=await client.from('listings').select('id,seller_id,title').eq('id',id).single();
+      if(r.error||!r.data){show('Не успяхме да заредим обявата. Презареди страницата и опитай отново.');return}
+      if(r.data.seller_id===session.user.id){show(errors['Cannot report own listing']);return}
+      const heading=qs('.report-kicker');if(heading)heading.textContent='Сигнал за: '+r.data.title;
+    }
+    button.disabled=false;
+    let submitting=false,submitted=false;
+    button.addEventListener('click',async e=>{
+      e.preventDefault();if(submitting||submitted)return;
+      const reason=qs('input[name="reason"]:checked')?.value;
+      if(!['fraud','wrong_category','prohibited_content','duplicate','misleading','other'].includes(reason)){show('Избери причина за сигнала.');return}
+      const details=qs('.report-card textarea')?.value.trim()||'';
+      if(details.length>1000){show('Описанието може да е до 1000 символа.');return}
+      submitting=true;busy(button,true,'Изпращане…');feedback.hidden=true;
+      try{
+        const {data,error}=await client.rpc('submit_report',{p_reason:reason,p_details:details||null,[param]:id});
+        if(error)throw error;
+        if(!v284Uuid(data))throw new Error('Missing report confirmation');
+        submitted=true;show('Сигналът е записан и е изпратен за преглед. Благодарим.',true);
+        qsa('.report-card input,.report-card textarea').forEach(el=>el.disabled=true);
+        button.textContent='Сигналът е изпратен';
+      }catch(err){show(errors[err?.message]||'Не получихме потвърждение за сигнала. Провери връзката и опитай отново.');}
+      finally{submitting=false;if(!submitted)busy(button,false);else button.disabled=true}
+    });
+  }
+
   async function boot(){
     initRegistration();
     initLogin();
@@ -2668,6 +2715,7 @@
     await v290InitPurchasePages(state.session);
     await initSupabasePostAd(state.session,state.account);
     await initRealEditAd(state.session);
+    await initRealReportV294(state.session);
     await renderSupabaseMyAds(state.session);
     await initRealHomeFeatured();
     await initPublicListings();
