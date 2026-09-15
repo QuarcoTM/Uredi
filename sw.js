@@ -1,4 +1,4 @@
-const CACHE='tehnika-v2.99';
+const CACHE='tehnika-v3.00';
 const CORE=[
   './assets/js/real-only-v297.js',
   './index.html',
