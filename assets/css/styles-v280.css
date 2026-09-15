@@ -5920,3 +5920,13 @@ html.real-gallery-open,body.real-gallery-open{overflow:hidden!important;overscro
     display:flex !important;
   }
 }
+
+
+/* v3.02: retain document position while overlays scroll independently. */
+html.overlay-scroll-locked-v302{overflow:hidden!important;overscroll-behavior:none}
+body.overlay-scroll-locked-v302{position:fixed!important;top:var(--overlay-scroll-top)!important;left:0;right:0;width:100%;overflow:hidden!important}
+.filter-panel,[role="dialog"][aria-modal="true"],.price-history-popover-card{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.price-history-popover-card{max-height:85dvh;overflow-y:auto}
+.detail-actions [data-compare-real][aria-pressed="true"]{background:#e8f0ff;border-color:#3063be}
+
+.uredi-mfa-dialog{max-height:85dvh;overflow-y:auto}
