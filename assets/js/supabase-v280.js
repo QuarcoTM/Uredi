@@ -31,7 +31,7 @@
   const protectedPages=new Set([
     'profile.html','profile-edit.html','profile-settings.html','account-security.html','data-rights.html',
     'my-ads.html','messages.html','notifications.html','saved-searches.html','profile-promotions.html',
-    'post-ad.html','edit-ad.html','promote.html','checkout.html','report.html'
+    'admin-access.html','post-ad.html','edit-ad.html','promote.html','checkout.html','report.html'
   ]);
 
   const humanizeError=(error)=>{
@@ -379,7 +379,7 @@
   }
 
   async function drawMfaStatus(){
-    if(file()!=='account-security.html')return;
+    if(file()!=='admin-access.html')return;
     const pill=qs('[data-two-factor-status]'), btn=qs('[data-toggle-two-factor]'), box=qs('[data-backup-codes]');
     const {data,error}=await client.auth.mfa.listFactors();
     if(error){console.warn(error);return}
@@ -391,16 +391,27 @@
   }
 
   async function startMfaEnrollment(){
+    if(file()!=='admin-access.html')return;
+    const access=await client.rpc('is_my_admin_account');
+    if(access.error||access.data!==true){toast('Нямаш администраторски достъп.');return}
     const box=qs('[data-backup-codes]');if(!box)return;
+    const pending=await client.auth.mfa.listFactors();
+    if(pending.error)throw pending.error;
+    for(const factor of pending.data?.all||[]){
+      if(factor.factor_type==='totp'&&factor.status==='unverified'){
+        const removed=await client.auth.mfa.unenroll({factorId:factor.id});
+        if(removed.error)throw removed.error;
+      }
+    }
     const {data,error}=await client.auth.mfa.enroll({factorType:'totp',friendlyName:'Uredi Authenticator'});
     if(error){toast(humanizeError(error));return}
     const qr=data?.totp?.qr_code||'', secret=data?.totp?.secret||'', factorId=data?.id;
     const qrSrc=qr.startsWith('data:')?qr:(qr.trim().startsWith('<svg')?'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(qr):qr);
     box.innerHTML=`<strong>Сканирай QR кода с приложение за удостоверяване</strong>
-      <div class="uredi-mfa-enroll"><img class="uredi-mfa-qr" alt="QR код за 2FA" src="${esc(qrSrc)}"/><div><small class="muted">Ако не можеш да сканираш QR кода, въведи този secret ръчно:</small><code class="uredi-mfa-secret">${esc(secret)}</code></div></div>
+      <div class="uredi-mfa-enroll"><img class="uredi-mfa-qr" alt="QR код за 2FA" src="${esc(qrSrc)}"/><div><small class="muted">Ако не можеш да сканираш QR кода, използвай този ключ в приложението:</small><code class="uredi-mfa-secret">${esc(secret)}</code></div></div>
       <label class="field"><span class="required-label">Код от приложението</span><input data-mfa-enroll-code inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456"/></label>
       <div class="uredi-mfa-enroll-actions"><button class="primary-btn" data-mfa-enroll-verify type="button">Включи 2FA</button><button class="ghost-btn" data-mfa-enroll-cancel type="button">Отказ</button></div>
-      <small class="muted">Supabase TOTP не използва резервни кодове. Можеш по-късно да добавиш втори фактор за резервен достъп.</small>`;
+      <small class="muted">Този код защитава само администраторския достъп. Не изпращай ключа или кодовете на други хора.</small>`;
     box.hidden=false;
     qs('[data-mfa-enroll-cancel]',box)?.addEventListener('click',async()=>{await client.auth.mfa.unenroll({factorId}).catch?.(()=>{});box.hidden=true;box.innerHTML=''});
     qs('[data-mfa-enroll-verify]',box)?.addEventListener('click',async e=>{
@@ -409,13 +420,13 @@
       const {error:vErr}=await client.auth.mfa.challengeAndVerify({factorId,code});
       busy(e.currentTarget,false);
       if(vErr){toast(humanizeError(vErr));return}
-      toast('2FA е включена.');box.hidden=true;box.innerHTML='';await drawMfaStatus();
+      toast('Защитата е включена.');box.hidden=true;box.innerHTML='';location.replace('admin/promotions-prepare.html');
     });
   }
 
   async function initAccountSecurity(session){
     if(!session||file()!=='account-security.html')return;
-    await drawMfaStatus();
+
     qs('[data-security-action="change-email"]')?.addEventListener('click',async e=>{
       const current=qs('[data-email-current-password]')?.value||'', next=qs('[data-new-email]')?.value.trim()||'';
       if(!emailOk(next)){toast('Въведи валиден нов email адрес.');return}
@@ -430,16 +441,7 @@
       try{await reauthWithCurrentPassword(current);const {error}=await client.auth.updateUser({password:next});if(error)throw error;['[data-current-password]','[data-new-password]','[data-confirm-password]'].forEach(s=>{const x=qs(s);if(x)x.value=''});toast('Паролата е сменена.')}catch(err){toast(humanizeError(err))}finally{busy(e.currentTarget,false)}
     });
     qs('[data-security-action="signout-all"]')?.addEventListener('click',async e=>{busy(e.currentTarget,true,'Излизане…');const {error}=await client.auth.signOut({scope:'others'});busy(e.currentTarget,false);toast(error?humanizeError(error):'Другите активни сесии са прекратени.');});
-    qs('[data-toggle-two-factor]')?.addEventListener('click',async e=>{
-      const factorId=e.currentTarget.dataset.factorId;
-      if(!factorId){await startMfaEnrollment();return}
-      if(!confirm('Да изключим ли двуфакторната защита за този профил?'))return;
-      try{
-        const {data:aal}=await client.auth.mfa.getAuthenticatorAssuranceLevel();
-        if(aal?.currentLevel==='aal1'&&aal?.nextLevel==='aal2')await showMfaDialog(factorId,{title:'Потвърди изключването на 2FA'});
-        const {error}=await client.auth.mfa.unenroll({factorId});if(error)throw error;toast('2FA е изключена.');await drawMfaStatus();
-      }catch(err){if(err?.message!=='MFA_CANCELLED')toast(humanizeError(err))}
-    });
+
   }
 
 
@@ -2625,6 +2627,29 @@
     return {session,account};
   }
 
+  async function initAdminAccess(session){
+    if(file()!=='admin-access.html'||!session)return;
+    const status=qs('[data-admin-status]'),button=qs('[data-admin-verify]');
+    const access=await client.rpc('is_my_admin_account');
+    if(access.error||access.data!==true){status.textContent='Този профил няма администраторски достъп.';return}
+    const {data:aal,error}=await client.auth.mfa.getAuthenticatorAssuranceLevel();
+    if(error){status.textContent='Не успяхме да проверим достъпа. Презареди страницата.';return}
+    if(aal?.currentLevel==='aal2'){location.replace('admin/promotions-prepare.html');return}
+    const {data:factors,error:fError}=await client.auth.mfa.listFactors();
+    if(fError){status.textContent='Не успяхме да заредим защитата. Презареди страницата.';return}
+    const enrolled=(factors?.totp||[]).some(f=>f.status==='verified');
+    status.textContent=enrolled?'Потвърди администраторския вход.':'Настрой допълнителната защита веднъж за администраторския си профил. Потребителите на сайта не минават през тази стъпка.';
+    button.textContent=enrolled?'Потвърди входа':'Настрой администраторската защита';button.hidden=false;
+    button.onclick=async()=>{
+      busy(button,true);
+      try{
+        if(enrolled){await ensureMfaIfEnrolled();location.replace('admin/promotions-prepare.html')}
+        else await startMfaEnrollment();
+      }catch(err){if(err.message!=='MFA_CANCELLED')toast(humanizeError(err))}
+      finally{busy(button,false)}
+    };
+  }
+
   async function boot(){
     initRegistration();
     initLogin();
@@ -2636,6 +2661,7 @@
     await initProfilePage(state.session,state.account);
     await initProfileEdit(state.session,state.account);
     await initAccountSecurity(state.session);
+    await initAdminAccess(state.session);
     await initSupabasePromotions(state.session);
     await v290InitPurchasePages(state.session);
     await initSupabasePostAd(state.session,state.account);
