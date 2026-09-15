@@ -3,7 +3,7 @@
 const cfg=window.SITE_CONFIG,c=window.supabase.createClient(cfg.supabaseUrl,cfg.supabasePublishableKey);
 const $=s=>document.querySelector(s),status=$('[data-live-status]'),list=$('[data-live-list]');
 const esc=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-const page=location.pathname.split('/').pop(),kind=page==='users.html'?'users':page==='ads.html'?'listings':page==='reports.html'?'reports':page==='blocked-profiles.html'?'blocked':'flags';
+const page=location.pathname.split('/').pop(),kind=page==='index.html'?'home':page==='audit.html'?'audit':['settings.html','health.html','brands.html','categories.html','sold-archive.html'].includes(page)?'unavailable':page==='users.html'?'users':page==='ads.html'?'listings':page==='reports.html'?'reports':page==='blocked-profiles.html'?'blocked':'flags';
 const labels={banned:'Блокиран',suspended:'Временно блокиран',restricted:'Ограничен',active:'Активна',reserved:'Резервирана',sold:'Продадена',draft:'Чернова',removed:'Свалена',clear:'Без ограничение',blocked:'Скрита от администратор',under_review:'В проверка',open:'Нова',reviewed:'Прегледана',actioned:'Предприети мерки',resolved:'Приключена',dismissed:'Отхвърлена'};
 let offset=0,total=0,rows=[],loading=false,q=new URLSearchParams(location.search).get('q')||'';
 const menu=document.createElement('button');menu.className='btn live-menu';menu.textContent='☰';menu.setAttribute('aria-label','Админ меню');$('.topbar').prepend(menu);
@@ -19,7 +19,7 @@ function imageMarkup(r){
 function historyMarkup(entries){
  const names={listing_moderation_changed:'Промяна на обявата',account_status_changed:'Промяна на профила',report_status_changed:'Статус на сигнала',report_decision:'Решение по сигнала'};
  const decisions={hide:'Обявата е скрита',block:'Профилът е блокиран',dismiss:'Няма нарушение'};
- return `<details class="live-history"><summary>История (${(entries||[]).length})</summary>${(entries||[]).map(h=>{const d=h.details||{};return `<div class="live-history-entry"><strong>${esc(decisions[d.decision]||names[h.action]||h.action)}</strong><div class="live-meta">${esc(date(h.created_at))} · ${esc(h.actor_name)} · ${esc(h.actor_id)}</div>${d.status?`<p>${esc(labels[d.status]||d.status)}</p>`:''}${d.old_status?`<p>${esc(labels[d.old_status]||d.old_status)} → ${esc(labels[d.new_status]||d.new_status)}</p>`:''}${d.reason?`<p>${esc(d.reason)}</p>`:''}</div>`}).join('')||'<p>Няма записани действия.</p>'}</details>`;
+ return `<details class="live-history"><summary>История (${(entries||[]).length})</summary>${(entries||[]).map(h=>{const d=h.details||{};return `<div class="live-history-entry"><strong>${esc(decisions[d.decision]||names[h.action]||h.action)}</strong><div class="live-meta">${esc(date(h.created_at))} · ${esc(h.actor_name)} · ${esc(h.actor_id)}</div>${d.status?`<p>${esc(labels[d.status]||d.status)}</p>`:''}${d.old_status?`<p>${esc(labels[d.old_status]||d.old_status)} → ${esc(labels[d.new_status]||d.new_status)}</p>`:''}${d.reason?`<p>${esc(d.reason)}</p>`:''}${h.target_id?`<small>Обект: ${esc(h.target_type)} · ${esc(h.target_id)}</small>`:''}</div>`}).join('')||'<p>Няма записани действия.</p>'}</details>`;
 }
 function reportMarkup(r){
  const l=r.listing,u=r.subject,open=['open','under_review'].includes(r.status);
@@ -44,6 +44,10 @@ async function userListings(b){
  }catch(e){box.textContent='Не успяхме да заредим обявите. Натисни „Обяви“ отново, за да затвориш и отвориш прегледа.';console.error(e)}finally{loading=false;b.disabled=false;box.removeAttribute('aria-busy')}
 }
 function render(){
+ if(kind==='home'){list.innerHTML='<div class="live-card"><h2>Управление на сайта</h2><div class="live-actions"><a class="btn" href="reports.html">Сигнали</a><a class="btn" href="ads.html">Обяви</a><a class="btn" href="users.html">Потребители</a><a class="btn" href="blocked-profiles.html">Блокирани профили</a><a class="btn" href="moderation.html">Автоматични проверки</a><a class="btn" href="audit.html">История на действията</a><a class="btn" href="promotions.html">Цени и промоции</a></div></div>';return}
+ if(kind==='unavailable'){list.innerHTML='<div class="live-empty">Този раздел все още не е достъпен. <a href="index.html">Към администрацията</a></div>';return}
+ if(kind==='audit'){list.innerHTML=historyMarkup(rows.map(r=>({...r,actor_name:'Администратор'})));const details=list.querySelector('details');if(details)details.open=true;return}
+
  if(!rows.length){list.innerHTML=`<div class="live-empty">${kind==='users'?'Няма намерени потребители.':kind==='listings'?'Няма намерени обяви.':kind==='reports'?'Няма подадени сигнали.':kind==='blocked'?'Няма блокирани профили или история на блокирания.':'Няма автоматично маркирани записи.'}</div>`;return}
  list.innerHTML=rows.map(r=>{
  if(kind==='users')return userMarkup(r);
@@ -56,7 +60,7 @@ function render(){
 }
 async function load(){
  if(loading)return;loading=true;list.setAttribute('aria-busy','true');status.textContent='Зареждаме…';
- try{const r=await c.rpc(kind==='users'?'admin_users_v296':'admin_queue_v295',kind==='users'?{p_offset:offset,p_query:q}:{p_kind:kind,p_offset:offset,p_query:q});if(r.error)throw r.error;rows=r.data?.rows||[];total=Number(r.data?.total||0);render();status.textContent=`Общо: ${total}.`;if(['reports','flags'].includes(kind))status.textContent+=' Неприключените проверки са най-отгоре.';$('[data-live-pager]').hidden=total<=30;$('[data-prev]').disabled=offset===0;$('[data-next]').disabled=offset+30>=total;$('[data-page]').textContent=`${Math.floor(offset/30)+1} / ${Math.max(1,Math.ceil(total/30))}`}
+ try{if(['home','unavailable'].includes(kind)){render();status.textContent='';$('[data-live-pager]').hidden=true;return}if(kind==='audit'){const r=await c.rpc('admin_recent_audit_log',{p_limit:100});if(r.error)throw r.error;rows=r.data||[];render();status.textContent='Последните 100 записани действия.';$('[data-live-pager]').hidden=true;return}const r=await c.rpc(kind==='users'?'admin_users_v296':'admin_queue_v295',kind==='users'?{p_offset:offset,p_query:q}:{p_kind:kind,p_offset:offset,p_query:q});if(r.error)throw r.error;rows=r.data?.rows||[];total=Number(r.data?.total||0);render();status.textContent=`Общо: ${total}.`;if(['reports','flags'].includes(kind))status.textContent+=' Неприключените проверки са най-отгоре.';$('[data-live-pager]').hidden=total<=30;$('[data-prev]').disabled=offset===0;$('[data-next]').disabled=offset+30>=total;$('[data-page]').textContent=`${Math.floor(offset/30)+1} / ${Math.max(1,Math.ceil(total/30))}`}
  catch(e){list.innerHTML='';status.textContent='Не успяхме да заредим данните. Провери администраторския вход и презареди.';console.error(e)}finally{loading=false;list.removeAttribute('aria-busy')}
 }
 try{
