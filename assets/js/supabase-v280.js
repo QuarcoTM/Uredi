@@ -2752,7 +2752,78 @@
     main.innerHTML=`<div class="container"><section class="seller-card"><h1>${esc(p.display_name||'Продавач')}</h1><p>${p.profile_type==='dealer'?'Търговец':'Частно лице'}${p.city?' · '+esc(p.city):''}</p>${company}<p>За контакт използвай бутона за съобщение или телефона в конкретната обява.</p><a class="secondary-btn" href="listings.html">Към обявите</a></section></div>`;
   }
 
+  // Real comparison: identifiers only in this browser; all displayed data comes from the database.
+  const compareKeyV299='marketCompareIdsV299';
+  let compareBusyV299=false,compareTimerV299;
+  function compareIdsV299(){try{const a=JSON.parse(localStorage.getItem(compareKeyV299)||'[]');return [...new Set(Array.isArray(a)?a:[])].filter(v297Uuid).slice(0,3)}catch{return []}}
+  function saveCompareV299(ids){localStorage.setItem(compareKeyV299,JSON.stringify(ids));syncCompareV299()}
+  function syncCompareV299(){
+    const ids=compareIdsV299();
+    qsa('[data-compare-real]').forEach(b=>{const on=ids.includes(b.dataset.compareReal);const text=on?'✓ В сравнението':'Сравни';if(b.textContent!==text)b.textContent=text;b.setAttribute('aria-pressed',String(on));b.disabled=compareBusyV299});
+    const dock=qs('[data-compare-dock]');if(dock){dock.hidden=!ids.length||file()==='compare.html';const a=qs('a',dock);a.textContent=`Сравни избраните (${ids.length}/3)`}
+  }
+  function mountCompareV299(){
+    qsa('[data-listing-id]').forEach(card=>{
+      const id=card.dataset.listingId;if(!v297Uuid(id)||card.querySelector('[data-compare-real]'))return;
+      const host=card.querySelector('.detail-actions,.listing-right,.card-body');if(!host)return;
+      const b=document.createElement('button');b.type='button';b.className='compare-select-v299';b.dataset.compareReal=id;host.appendChild(b);
+    });syncCompareV299();
+  }
+  async function toggleCompareV299(id){
+    if(compareBusyV299||!v297Uuid(id))return;
+    let ids=compareIdsV299();if(ids.includes(id)){saveCompareV299(ids.filter(x=>x!==id));if(file()==='compare.html')await renderCompareV299();return}
+    if(ids.length>=3){toast('Можеш да сравняваш до 3 обяви. Премахни една от избраните.');return}
+    compareBusyV299=true;syncCompareV299();
+    try{
+      // Recheck the current selection after the request, including changes in another tab.
+      const requested=[...ids,id];
+      const r=await client.from('listings').select('id,category_slug,status').in('id',requested);if(r.error)throw r.error;
+      ids=compareIdsV299();if(ids.some(x=>!requested.includes(x))){toast('Изборът е променен в друг прозорец. Опитай отново.');return}
+      if(ids.includes(id))return;if(ids.length>=3){toast('Можеш да сравняваш до 3 обяви.');return}
+      const row=(r.data||[]).find(x=>x.id===id);
+      if(!row||!['active','reserved'].includes(row.status)){toast('Тази обява вече не е активна.');return}
+      const selected=ids.map(x=>(r.data||[]).find(y=>y.id===x));
+      if(selected.some(x=>!x||!['active','reserved'].includes(x.status))){toast('Има недостъпна обява в сравнението. Премахни я от „Сравнение“.');return}
+      if(!row.category_slug||selected.some(x=>x.category_slug!==row.category_slug)){toast('Избирай обяви от една категория — например само хладилници.');return}
+      saveCompareV299([...ids,id]);
+    }catch(e){toast('Не успяхме да добавим обявата за сравнение. Опитай отново.');console.warn(e)}finally{compareBusyV299=false;syncCompareV299()}
+  }
+  function compareValueV299(v){if(v===true)return 'Да';if(v===false)return 'Не';if(v==null||typeof v==='object'||String(v).trim()==='')return 'Не е посочено';return String(v)}
+  async function renderCompareV299(){
+    const root=qs('[data-comparison-root]');if(!root)return;
+    const ids=compareIdsV299();root.innerHTML='<p role="status">Зареждаме сравнението…</p>';
+    if(!ids.length){root.innerHTML='<div class="empty-state"><h2>Няма избрани обяви</h2><p>Натисни „Сравни“ под обявите. Можеш да избереш до 3 от една категория.</p><a class="primary-btn" href="listings.html">Разгледай обявите</a></div>';return}
+    try{
+      const r=await client.from('listings').select('*').in('id',ids);if(r.error)throw r.error;
+      if(JSON.stringify(ids)!==JSON.stringify(compareIdsV299()))return renderCompareV299();
+      const rows=ids.map(id=>(r.data||[]).find(x=>x.id===id&&['active','reserved'].includes(x.status))||null);
+      const cats=new Set(rows.filter(Boolean).map(x=>x.category_slug));
+      if(cats.size>1){root.innerHTML='<p>Категорията на избрана обява е променена. Избери отново обяви от една категория.</p><button class="secondary-btn" data-compare-clear>Изчисти сравнението</button>';return}
+      const fields=rows.map(row=>row?v260ListingFields(row):null),specKeys=[...new Set(fields.flatMap(f=>Object.keys(f?.specs||{}).filter(k=>!k.startsWith('__')&&typeof f.specs[k]!=='object')))];
+      const specs=[['Цена',rows.map(r=>r?v260Money(r.price):null)],['Състояние',fields.map(f=>f?.condition)],['Марка',fields.map(f=>f?.brand)],['Модел',fields.map(f=>f?.model)],['Населено място',fields.map(f=>f?.city)],...specKeys.map(k=>[k,fields.map(f=>f?.specs[k])])];
+      const img=await client.from('listing_images').select('*').in('listing_id',ids);const images=new Map();(img.data||[]).sort(v260ImageSort).forEach(x=>{if(!images.has(x.listing_id))images.set(x.listing_id,x)});
+      if(JSON.stringify(ids)!==JSON.stringify(compareIdsV299()))return renderCompareV299();
+      const headers=rows.map((row,i)=>{const p=row?v275ImagePathsFromRow(row)[0]:null;return `<th scope="col">${row?`<img src="${esc(v260PublicImageUrl(p?v275PseudoImage(p):images.get(row.id)))}" alt=""><a href="listing.html?id=${encodeURIComponent(row.id)}">${esc(row.title||'Обява')}</a>`:'<strong>Обявата вече не е налична</strong>'}<button class="compare-remove-v299" data-compare-remove="${esc(ids[i])}" aria-label="Премахни ${esc(row?.title||'недостъпната обява')} от сравнението">Премахни</button></th>`}).join('');
+      root.innerHTML=`<p>${ids.length}/3 избрани обяви${fields.find(Boolean)?' · '+esc(fields.find(Boolean).category):''}. Плъзни таблицата настрани на телефон.</p><div class="compare-scroll-v299" tabindex="0" role="region" aria-label="Таблица за сравнение"><table class="compare-table-v299"><caption>Сравнение на избраните обяви</caption><thead><tr><th scope="col">Характеристика</th>${headers}</tr></thead><tbody>${specs.map(([label,values])=>`<tr><th scope="row">${esc(label)}</th>${values.map(v=>`<td>${esc(compareValueV299(v))}</td>`).join('')}</tr>`).join('')}</tbody></table></div><div class="compare-footer-v299"><a class="secondary-btn" href="listings.html">${ids.length<3?'Добави още обява':'Към обявите'}</a><button class="secondary-btn" data-compare-clear>Изчисти сравнението</button></div>`;
+    }catch(e){root.innerHTML='<p role="alert">Не успяхме да заредим сравнението. Изборът ти е запазен.</p><button class="secondary-btn" data-compare-retry>Опитай отново</button>';console.warn(e)}
+  }
+  function initCompareV299(){
+    const style=document.createElement('link');style.rel='stylesheet';style.href='assets/css/compare-v299.css?v=2.99';document.head.appendChild(style);
+    const nav=qs('.main-nav');if(nav&&!nav.querySelector('a[href="compare.html"]')){const a=document.createElement('a');a.href='compare.html';a.textContent='Сравнение';nav.appendChild(a)}
+    const dock=document.createElement('div');dock.className='compare-dock-v299';dock.dataset.compareDock='';dock.hidden=true;dock.innerHTML='<a href="compare.html"></a>';document.body.appendChild(dock);
+    document.addEventListener('click',e=>{
+      const add=e.target.closest('[data-compare-real]'),remove=e.target.closest('[data-compare-remove]');
+      if(add||remove){e.preventDefault();toggleCompareV299(add?.dataset.compareReal||remove.dataset.compareRemove);return}
+      if(e.target.closest('[data-compare-clear]')){saveCompareV299([]);renderCompareV299()}
+      if(e.target.closest('[data-compare-retry]'))renderCompareV299();
+    });
+    new MutationObserver(records=>{if(!records.some(r=>[...r.addedNodes].some(n=>n.nodeType===1)))return;clearTimeout(compareTimerV299);compareTimerV299=setTimeout(mountCompareV299,50)}).observe(document.body,{childList:true,subtree:true});
+    window.addEventListener('storage',e=>{if(e.key===compareKeyV299){syncCompareV299();if(file()==='compare.html')renderCompareV299()}});
+    mountCompareV299();if(file()==='compare.html')renderCompareV299();
+  }
+
   async function boot(){
+    initCompareV299();
     initRegistration();
     initLogin();
     initForgotPassword();
