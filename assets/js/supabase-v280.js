@@ -14,6 +14,23 @@
   const passOk=(v)=>String(v||'').length>=8&&/[A-Za-zА-Яа-яЁё]/.test(String(v||''))&&/\d/.test(String(v||''));
   const esc=(v)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const busy=(btn,on,label)=>{if(!btn)return;if(on){btn.dataset.oldText=btn.textContent;btn.disabled=true;btn.textContent=label||'Моля, изчакай…'}else{btn.disabled=false;btn.textContent=btn.dataset.oldText||btn.textContent;delete btn.dataset.oldText}};
+  const authCooldownKey=(kind,email)=>`uredi-auth-cooldown-v310:${kind}:${String(email||'').trim().toLowerCase()}`;
+  const authCooldownLeft=(key)=>{try{return Math.max(0,Math.ceil((Number(localStorage.getItem(key)||0)-Date.now())/1000))}catch{return 0}};
+  const authCooldown=(btn,key,readyLabel,seconds=60)=>{
+    if(!btn)return;
+    const until=Date.now()+Math.max(1,Number(seconds)||60)*1000;
+    try{localStorage.setItem(key,String(until))}catch{}
+    const paint=()=>{
+      const left=Math.max(0,Math.ceil((until-Date.now())/1000));
+      if(left){btn.disabled=true;btn.textContent=`Изпрати отново след ${left} сек.`;return true}
+      btn.disabled=false;btn.textContent=readyLabel;
+      try{localStorage.removeItem(key)}catch{}
+      return false;
+    };
+    paint();
+    const timer=setInterval(()=>{if(!paint())clearInterval(timer)},1000);
+  };
+  const resumeAuthCooldown=(btn,key,readyLabel)=>{const left=authCooldownLeft(key);if(left)authCooldown(btn,key,readyLabel,left);};
 
   if(!window.supabase?.createClient){
     console.error('Supabase JS library is unavailable.');
@@ -242,6 +259,8 @@
       return false;
     };
     await refresh();
+    const pendingEmail=localStorage.getItem('marketPendingVerifyEmailV257')||'';
+    if(resend&&emailOk(pendingEmail))resumeAuthCooldown(resend,authCooldownKey('signup',pendingEmail),'Изпрати линка отново');
     btn?.addEventListener('click',async e=>{
       if(e.currentTarget.textContent.includes('Продължи'))return;
       if(await refresh())return;
@@ -250,9 +269,13 @@
     resend?.addEventListener('click',async()=>{
       const email=localStorage.getItem('marketPendingVerifyEmailV257')||'';
       if(!emailOk(email)){toast('Върни се към регистрацията и въведи email адреса отново.');return}
+      const cooldownKey=authCooldownKey('signup',email), remaining=authCooldownLeft(cooldownKey);
+      if(remaining){authCooldown(resend,cooldownKey,'Изпрати линка отново',remaining);toast(`Изчакай ${remaining} сек. преди нов опит.`);return}
       busy(resend,true,'Изпращане…');
-      const {error}=await client.auth.resend({type:'signup',email,options:{emailRedirectTo:abs('verify-email.html')}});
-      busy(resend,false);
+      let requested=false,error=null;
+      try{requested=true;({error}=await client.auth.resend({type:'signup',email,options:{emailRedirectTo:abs('verify-email.html')}}))}
+      catch(err){error=err}
+      finally{busy(resend,false);if(requested)authCooldown(resend,cooldownKey,'Изпрати линка отново')}
       toast(error?humanizeError(error):'Изпратихме нов линк за потвърждение.');
     });
     client.auth.onAuthStateChange(async(event,session)=>{
@@ -305,13 +328,17 @@
       const email=qs('[data-forgot-email]')?.value.trim()||'';
       const status=qs('[data-forgot-status]');
       if(!emailOk(email)){if(status){status.style.display='block';status.textContent='Въведи валиден email адрес.'}return}
+      const cooldownKey=authCooldownKey('recovery',email), remaining=authCooldownLeft(cooldownKey);
+      if(remaining){authCooldown(btn,cooldownKey,'Изпрати email',remaining);if(status){status.style.display='block';status.textContent=`Изчакай ${remaining} сек. преди нов опит.`}return}
       busy(btn,true,'Изпращане…');
+      let requested=false;
       try{
+        requested=true;
         const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo:abs('forgot-password.html?mode=update')});
         if(error)throw error;
         if(status){status.style.display='block';status.textContent='Ако има профил с този email, ще получиш защитен линк за нова парола.'}
       }catch(error){if(status){status.style.display='block';status.textContent=humanizeError(error)}}
-      finally{busy(btn,false)}
+      finally{busy(btn,false);if(requested)authCooldown(btn,cooldownKey,'Изпрати email')}
     });
   }
 
