@@ -5930,3 +5930,17 @@ body.overlay-scroll-locked-v302{position:fixed!important;top:var(--overlay-scrol
 .detail-actions [data-compare-real][aria-pressed="true"]{background:#e8f0ff;border-color:#3063be}
 
 .uredi-mfa-dialog{max-height:85dvh;overflow-y:auto}
+
+/* v3.03: override desktop max-content height so the mobile sheet can scroll. */
+@media(max-width:760px){
+  .filter-panel{
+    height:auto;
+    min-height:0;
+    max-height:calc(100vh - 60px - var(--mobile-nav-h,64px) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+    max-height:calc(100dvh - 60px - var(--mobile-nav-h,64px) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+    overflow-y:auto;
+    overflow-x:hidden;
+    overscroll-behavior-y:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+}
