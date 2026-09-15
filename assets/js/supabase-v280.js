@@ -1698,7 +1698,7 @@
     const created=new Date(row.created_at||0).getTime()||0;
     const bumped=promoState?.kind==='bump'?new Date(promoState.bumped_at||0).getTime()||0:0;
     const search=[row.title,f.category,f.brand,f.model,f.city,f.condition].join(' ').toLowerCase();
-    return `<article class="listing-row real-listing-row${promoState?.kind==='vip'?' vip':promoState?.kind==='top'?' top':''}" data-real-listing="1" data-listing-id="${esc(row.id)}" data-brand="${esc(f.brand)}" data-category="${esc(f.category)}" data-city="${esc(f.city)}" data-code="${esc(f.model)}" data-created="${created}" data-bumped="${bumped}" data-model="${esc(f.model)}" data-price="${Number(row.price||0)}" data-promo-rank="${v260PromoRank(promo)}" data-search="${esc(search)}" data-seller-type="${dealer?'trader':'private'}" data-state="${esc(f.condition)}" data-warranty="${f.warranty&&f.warranty!=='Без гаранция'?'1':'0'}">
+    return `<article class="listing-row real-listing-row${promoState?.kind==='vip'?' vip':promoState?.kind==='top'?' top':''}" data-real-listing="1" data-listing-id="${esc(row.id)}" data-brand="${esc(f.brand)}" data-category="${esc(f.category)}" data-city="${esc(f.city)}" data-code="${esc(f.model)}" data-created="${created}" data-bumped="${bumped}" data-model="${esc(f.model)}" data-price="${Number(row.price||0)}" data-promo-rank="${v260PromoRank(promo)}" data-search="${esc(search)}" data-seller-type="${dealer?'trader':'private'}" data-state="${esc(f.condition)}" data-delivery="${['Куриер','Собствен транспорт'].includes(f.delivery)?'1':'0'}" data-photos="${img||f.imagePaths.length?'1':'0'}" data-warranty="${f.warranty&&f.warranty!=='Без гаранция'?'1':'0'}">
       <a href="listing.html?id=${encodeURIComponent(row.id)}"><img alt="${esc(row.title||'Обява')}" decoding="async" loading="lazy" src="${esc(v260PublicImageUrl(img))}"/></a>
       <div class="listing-info"><div class="real-listing-kicker"><span class="muted small">${esc(f.category)}</span>${badge}</div><a href="listing.html?id=${encodeURIComponent(row.id)}"><h2 class="listing-title">${esc(row.title||'Обява')}</h2></a>${meta?`<div class="muted small">${esc(meta)}</div>`:''}<div class="listing-features">${spec?`<span>${esc(spec)}</span>`:''}${f.condition?`<span>${esc(f.condition)}</span>`:''}<span class="seller-name">${esc(seller)} ${dealer?'<span class="badge badge-seller-type">Търговец</span>':''}</span></div></div>
       <div class="listing-right"><div class="price-with-trend listing-price-with-trend"><div class="price">${esc(v260Money(row.price))}</div></div><button aria-label="Добави в любими" class="fav-float" data-favorite="${esc(row.id)}" style="position:static;margin-top:9px"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"></path></svg></span></button><div class="listing-location">${esc(f.city||'България')}</div></div>
@@ -1714,23 +1714,23 @@
 
   function v260BindPublicFilters(){
     const list=qs('.listing-list');if(!list||list.dataset.supaFiltersBound)return;list.dataset.supaFiltersBound='1';
-    const controls={category:qs('#categoryFilter'),brand:qs('#brandFilter'),state:qs('#stateFilter'),city:qs('#cityFilter'),seller:qs('#sellerTypeFilter'),minPrice:qs('#minPrice'),maxPrice:qs('#maxPrice'),q:qs('[data-listing-search]')};
+    const controls={category:qs('#categoryFilter'),brand:qs('#brandFilter'),state:qs('#stateFilter'),city:qs('#cityFilter'),seller:qs('#sellerTypeFilter'),minPrice:qs('#minPrice'),maxPrice:qs('#maxPrice'),q:qs('[data-listing-search]'),distance:qs('#distanceRadius'),warranty:qs('#warrantyFilter'),delivery:qs('#deliveryFilter'),photos:qs('#photosFilter')};
     const sort=qs('[data-sort-listings]'),count=qs('[data-result-count]'),zero=qs('[data-zero-results]'),loadMore=qs('[data-load-more]'),chips=qs('[data-active-filters]'),chipWrap=qs('[data-active-filters-wrap]');
     let limit=Number(cfg.resultPagination?.initial||5);
     const params=new URLSearchParams(location.search);
     const set=(key,value)=>{const c=controls[key];if(!c||!value)return;if(c.tagName==='SELECT'){const opt=[...c.options].find(o=>v260Norm(o.value||o.textContent)===v260Norm(value));if(opt)c.value=opt.value}else c.value=value};
     set('category',params.get('category'));set('brand',params.get('brand'));set('state',params.get('state'));set('city',params.get('city'));set('seller',params.get('seller'));set('minPrice',params.get('minPrice'));set('maxPrice',params.get('maxPrice')||params.get('max'));set('q',params.get('q'));
-    const value=k=>v260Clean(controls[k]?.value);
+    const value=k=>controls[k]?.type==='checkbox'?(controls[k].checked?'1':''):v260Clean(controls[k]?.value);
     const matches=row=>{
       const q=value('q'),tokens=v260QueryTokens(q),hay=v260Norm([row.dataset.search,row.dataset.brand,row.dataset.model,row.dataset.city,row.dataset.state,row.dataset.category].join(' '));
       const white=['бяла техника','електроуреди','уреди','уред'].includes(v260Norm(q));
-      const qOk=!q||white||tokens.every(t=>hay.includes(t))||tokens.some(t=>hay.includes(t));
-      const min=Number(value('minPrice')||0),max=Number(value('maxPrice')||999999999);
-      return qOk&&(!value('category')||v260CategoryAlias(row.dataset.category)===v260CategoryAlias(value('category')))&&(!value('brand')||v260Norm(row.dataset.brand)===v260Norm(value('brand')))&&(!value('state')||v260Norm(row.dataset.state)===v260Norm(value('state')))&&(!value('city')||v260Norm(row.dataset.city)===v260Norm(value('city')))&&(!value('seller')||row.dataset.sellerType===value('seller'))&&Number(row.dataset.price||0)>=min&&Number(row.dataset.price||0)<=max;
+      const qOk=!q||white||v260Norm(q).split(/\s+/).filter(Boolean).every(t=>v260QueryTokens(t).some(alias=>hay.includes(alias)));
+      const min=Number(value('minPrice').replace(',','.')||0),max=Number(value('maxPrice').replace(',','.')||999999999);
+      return qOk&&(!value('category')||v260CategoryAlias(row.dataset.category)===v260CategoryAlias(value('category')))&&(!value('brand')||v260Norm(row.dataset.brand)===v260Norm(value('brand')))&&(!value('state')||v260Norm(row.dataset.state)===v260Norm(value('state')))&&(!value('city')||v260Norm(row.dataset.city)===v260Norm(value('city')))&&(!value('seller')||row.dataset.sellerType===value('seller'))&&(!value('warranty')||row.dataset.warranty==='1')&&(!value('delivery')||row.dataset.delivery==='1')&&(!value('photos')||row.dataset.photos==='1')&&(!value('distance')||!!window.UrediGeo?.matches(row,Number(value('distance'))))&&Number(row.dataset.price||0)>=min&&Number(row.dataset.price||0)<=max;
     };
     const drawChips=()=>{
-      if(!chips||!chipWrap)return;const active=[];Object.entries(controls).forEach(([k,c])=>{const v=v260Clean(c?.value);if(v)active.push([k,v])});
-      const labels={q:'Търсене',category:'Категория',brand:'Марка',state:'Състояние',city:'Град',seller:'Продавач',minPrice:'Цена от',maxPrice:'Цена до'};
+      if(!chips||!chipWrap)return;const active=[];Object.entries(controls).forEach(([k,c])=>{const v=value(k);if(v)active.push([k,c?.type==='checkbox'?'Да':v])});
+      const labels={q:'Търсене',category:'Категория',brand:'Марка',state:'Състояние',city:'Град',seller:'Продавач',minPrice:'Цена от',maxPrice:'Цена до',distance:'Разстояние (км)',warranty:'С гаранция',delivery:'Предлага доставка',photos:'Само със снимки'};
       chips.innerHTML=active.map(([k,v])=>`<span class="filter-chip">${esc((labels[k]||k)+': '+(k==='seller'?(v==='trader'?'Търговец':'Частно лице'):v))} <button type="button" data-supa-remove-filter="${esc(k)}" aria-label="Премахни">×</button></span>`).join('');chipWrap.style.display=active.length?'flex':'none';
     };
     const apply=()=>{
@@ -1747,10 +1747,34 @@
     Object.values(controls).filter(Boolean).forEach(c=>['input','change'].forEach(ev=>c.addEventListener(ev,()=>{limit=Number(cfg.resultPagination?.initial||5);apply()})));
     sort?.addEventListener('change',apply);loadMore?.addEventListener('click',()=>{limit+=Number(cfg.resultPagination?.step||5);apply()});
     document.addEventListener('click',e=>{
-      const rm=e.target.closest('[data-supa-remove-filter]');if(rm){const c=controls[rm.dataset.supaRemoveFilter];if(c){c.value='';limit=Number(cfg.resultPagination?.initial||5);apply()}return}
-      if(e.target.closest('[data-clear-filters]')){Object.values(controls).filter(Boolean).forEach(c=>c.value='');limit=Number(cfg.resultPagination?.initial||5);apply()}
+      const rm=e.target.closest('[data-supa-remove-filter]');if(rm){const c=controls[rm.dataset.supaRemoveFilter];if(c){c.value='';if(c.type==='checkbox')c.checked=false;limit=Number(cfg.resultPagination?.initial||5);apply()}return}
+      if(e.target.closest('[data-clear-filters]')){Object.values(controls).filter(Boolean).forEach(c=>{if(c.type==='checkbox')c.checked=false;else c.value=''});window.UrediGeo?.reset();limit=Number(cfg.resultPagination?.initial||5);apply()}
     });
+    document.addEventListener('uredi:geo-change',()=>{limit=Number(cfg.resultPagination?.initial||5);apply()});
+    document.addEventListener('click',e=>{if(e.target.closest('[data-remove-last-filter]')){const k=Object.keys(controls).reverse().find(k=>value(k));if(k){const c=controls[k];if(c.type==='checkbox')c.checked=false;else c.value='';limit=Number(cfg.resultPagination?.initial||5);apply()}}});
     apply();
+  }
+
+  async function v304LoadActiveListings(){
+    const rows=[];
+    try{
+      for(let offset=0;;){
+        const r=await client.from('listings').select('*').eq('status','active').order('created_at',{ascending:false}).order('id',{ascending:false}).range(offset,offset+199);
+        if(r.error)return {data:null,error:r.error};
+        if(!r.data?.length)break;
+        rows.push(...r.data);offset+=r.data.length;
+      }
+      return {data:[...new Map(rows.map(r=>[r.id,r])).values()],error:null};
+    }catch(error){return {data:null,error}}
+  }
+  async function v304RelatedRows(table,columns,key,ids){
+    const data=[];
+    for(let i=0;i<ids.length;i+=50){
+      const r=await client.from(table).select(columns).in(key,ids.slice(i,i+50));
+      if(r.error)return {data:[],error:r.error};
+      data.push(...(r.data||[]));
+    }
+    return {data,error:null};
   }
 
   async function initPublicListings(){
@@ -1758,13 +1782,13 @@
     const list=qs('.listing-list');if(!list)return;
     list.dataset.supabaseLoading='1';
     const skeleton=qs('[data-results-skeleton]');if(skeleton)skeleton.classList.remove('is-hidden');
-    const {data:listings,error}=await client.from('listings').select('*').eq('status','active').order('created_at',{ascending:false}).limit(200);
+    const {data:listings,error}=await v304LoadActiveListings();
     if(error){console.error('Public listings:',error);list.innerHTML='<div class="real-listings-error"><strong>Не успяхме да заредим обявите.</strong><span>Обнови страницата след малко.</span></div>';if(skeleton)skeleton.classList.add('is-hidden');return}
     const rows=listings||[],ids=rows.map(x=>x.id),sellerIds=[...new Set(rows.map(x=>x.seller_id).filter(Boolean))];
     const [imagesRes,promosRes,profilesRes]=await Promise.all([
-      ids.length?client.from('listing_images').select('*').in('listing_id',ids):Promise.resolve({data:[],error:null}),
-      ids.length?client.from('listing_promotion_state').select('listing_id,product_id,kind,started_at,expires_at,bumped_at,updated_at').in('listing_id',ids):Promise.resolve({data:[],error:null}),
-      sellerIds.length?client.from('profiles').select('id,display_name,profile_type,city').in('id',sellerIds):Promise.resolve({data:[],error:null})
+      v304RelatedRows('listing_images','*','listing_id',ids),
+      v304RelatedRows('listing_promotion_state','listing_id,product_id,kind,started_at,expires_at,bumped_at,updated_at','listing_id',ids),
+      v304RelatedRows('profiles','id,display_name,profile_type,city','id',sellerIds)
     ]);
     if(imagesRes.error)console.warn(imagesRes.error);if(promosRes.error)console.warn(promosRes.error);if(profilesRes.error)console.warn(profilesRes.error);
     const images=(imagesRes.data||[]).sort(v260ImageSort),firstImage=new Map();images.forEach(img=>{if(!firstImage.has(img.listing_id))firstImage.set(img.listing_id,img)});

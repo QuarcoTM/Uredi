@@ -26,18 +26,19 @@
 
   function rowCoords(row){
     const lat=Number(row.dataset.lat),lon=Number(row.dataset.lon);
-    if(Number.isFinite(lat)&&Number.isFinite(lon))return [lat,lon];
+    if(row.dataset.lat?.trim()&&row.dataset.lon?.trim()&&Number.isFinite(lat)&&Number.isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180)return [lat,lon];
     const name=row.dataset.city||row.querySelector('.listing-location')?.textContent||'';
     return coords[norm(name)]||null;
   }
   function origin(){
     const o=readOrigin();
-    if(o&&Number.isFinite(Number(o.lat))&&Number.isFinite(Number(o.lon)))return [Number(o.lat),Number(o.lon)];
+    if(o&&o.lat!=null&&o.lon!=null&&o.lat!==''&&o.lon!==''&&Number.isFinite(Number(o.lat))&&Number.isFinite(Number(o.lon))&&Math.abs(Number(o.lat))<=90&&Math.abs(Number(o.lon))<=180)return [Number(o.lat),Number(o.lon)];
     return null;
   }
   function apply(){
     const r=Number(radius()?.value||0),o=origin();
     $$('.listing-row').forEach(row=>row.classList.remove('geo-filter-hidden'));
+    if(window.SITE_CONFIG?.supabaseEnabled){document.dispatchEvent(new Event('uredi:geo-change'));return}
     if(!r||!o)return;
     $$('.listing-row').forEach(row=>{
       const p=rowCoords(row);
@@ -51,6 +52,7 @@
     b.classList.remove('geo-location-busy');
     b.disabled=false;
     b.textContent='Моето място';
+    if(!o&&hint())hint().textContent=radius()?.value?'Натисни „Моето място“, за да търсиш по разстояние.':'Разстоянието е приблизително, по населено място.';
     if(o&&hint())hint().textContent=`Текущото ти местоположение е избрано${radius()?.value?` · до ${radius().value} км`:''}.`;
   }
   function fail(message){
@@ -147,6 +149,8 @@
   document.addEventListener('change',e=>{if(e.target.matches('#distanceRadius')){setReady();apply()}},true);
   document.addEventListener('input',e=>{if(e.target.matches('#cityFilter')&&e.target.value.trim()){try{localStorage.removeItem(KEY)}catch{};setReady();apply()}},true);
   const observer=new MutationObserver(()=>apply());
-  const list=$('.listing-list');if(list)observer.observe(list,{childList:true,subtree:true});
+  const list=$('.listing-list');if(list&&!window.SITE_CONFIG?.supabaseEnabled)observer.observe(list,{childList:true,subtree:true});
+  window.UrediGeo={matches:(row,r)=>{const o=origin(),p=rowCoords(row);return !!o&&!!p&&hav(o,p)<=r},reset:()=>{try{localStorage.removeItem(KEY)}catch{};setReady()}};
   setReady();apply();
 })();
+
