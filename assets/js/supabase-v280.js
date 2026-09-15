@@ -2630,7 +2630,7 @@
   async function initAdminAccess(session){
     if(file()!=='admin-access.html'||!session)return;
     const requested=new URLSearchParams(location.search).get('next');
-    const destination=['admin/ads.html','admin/moderation.html','admin/reports.html','admin/promotions-prepare.html'].includes(requested)?requested:'admin/promotions-prepare.html';
+    const destination=['admin/ads.html','admin/moderation.html','admin/reports.html','admin/blocked-profiles.html','admin/promotions-prepare.html'].includes(requested)?requested:'admin/promotions-prepare.html';
     const status=qs('[data-admin-status]'),button=qs('[data-admin-verify]');
     const access=await client.rpc('is_my_admin_account');
     if(access.error||access.data!==true){status.textContent='Този профил няма администраторски достъп.';return}
