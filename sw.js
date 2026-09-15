@@ -1,5 +1,6 @@
-const CACHE='tehnika-v2.96';
+const CACHE='tehnika-v2.97';
 const CORE=[
+  './assets/js/real-only-v297.js',
   './index.html',
   './profile-promotions.html',
   './assets/css/styles-v280.css',
