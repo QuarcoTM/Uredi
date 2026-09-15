@@ -269,10 +269,13 @@
       const pass=qs('[data-reset-password]')?.value||'', confirm=qs('[data-reset-password-confirm]')?.value||'';
       if(!passOk(pass)){toast('Паролата трябва да е минимум 8 символа и да съдържа поне 1 буква и 1 цифра.');return}
       if(pass!==confirm){toast('Паролите не съвпадат.');return}
-      busy(e.currentTarget,true,'Запазване…');
-      const {error}=await client.auth.updateUser({password:pass});
-      busy(e.currentTarget,false);
-      if(error){toast(humanizeError(error));return}
+      const btn=e.currentTarget;
+      busy(btn,true,'Запазване…');
+      try{
+        const {error}=await client.auth.updateUser({password:pass});
+        if(error)throw error;
+      }catch(error){toast(humanizeError(error));return}
+      finally{busy(btn,false)}
       toast('Паролата е сменена.');
       await sleep(450);location.href='profile.html';
     });
@@ -282,10 +285,14 @@
     if(file()!=='forgot-password.html')return;
     const mode=new URL(location.href).searchParams.get('mode');
     if(mode==='update'){
-      const session=await getSession();
-      if(session)renderResetPasswordForm();
-      client.auth.onAuthStateChange((event,s)=>{if((event==='PASSWORD_RECOVERY'||event==='SIGNED_IN')&&s)renderResetPasswordForm()});
-      return;
+      const url=new URL(location.href), hash=new URLSearchParams(url.hash.slice(1));
+      const linkError=['error','error_code'].some(key=>url.searchParams.has(key)||hash.has(key));
+      let session=null;
+      try{session=await getSession()}catch(error){/* Keep the new-link form available. */}
+      if(session&&!linkError){renderResetPasswordForm();return}
+      const status=qs('[data-forgot-status]');
+      if(status){status.style.display='block';status.textContent='Линкът е невалиден или е изтекъл. Въведи имейла си, за да получиш нов.'}
+      if(!linkError)client.auth.onAuthStateChange((event,s)=>{if(event==='PASSWORD_RECOVERY'&&s)renderResetPasswordForm()});
     }
     const btn=qs('[data-forgot-submit]');if(!btn)return;
     btn.addEventListener('click',async()=>{
@@ -293,9 +300,12 @@
       const status=qs('[data-forgot-status]');
       if(!emailOk(email)){if(status){status.style.display='block';status.textContent='Въведи валиден email адрес.'}return}
       busy(btn,true,'Изпращане…');
-      const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo:abs('forgot-password.html?mode=update')});
-      busy(btn,false);
-      if(status){status.style.display='block';status.textContent=error?humanizeError(error):'Ако има профил с този email, ще получиш защитен линк за нова парола.'}
+      try{
+        const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo:abs('forgot-password.html?mode=update')});
+        if(error)throw error;
+        if(status){status.style.display='block';status.textContent='Ако има профил с този email, ще получиш защитен линк за нова парола.'}
+      }catch(error){if(status){status.style.display='block';status.textContent=humanizeError(error)}}
+      finally{busy(btn,false)}
     });
   }
 
