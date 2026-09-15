@@ -1677,8 +1677,16 @@
   }
 
   function v260SpecSummary(fields){
-    const values=Object.values(fields.specs||{}).filter(Boolean).slice(0,3);
-    return values.join(' · ');
+    const names={no_frost:'No Frost',inverter:'Инверторен',convection:'Вентилатор / конвекция',grill:'Грил'};
+    return Object.entries(fields.specs||{}).flatMap(([key,value])=>{
+      if(key.startsWith('__')||value==null||typeof value==='object')return [];
+      const label=names[key]||key.trim(),text=String(value).trim();
+      if(!label||!text)return [];
+      const normalized=text.toLocaleLowerCase('bg-BG');
+      if(value===true||['да','yes','true'].includes(normalized))return [label];
+      if(value===false||['не','no','false'].includes(normalized))return [label+': Не'];
+      return [text];
+    }).slice(0,3).join(' · ');
   }
 
   function v260ListingRowHTML(row,img,profile,promo){
