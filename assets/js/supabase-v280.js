@@ -706,11 +706,72 @@
     return `<div class="empty-state myads-empty-real"><h2>${esc(title)}</h2><p class="muted">${esc(text)}</p>${showPost?'<a class="primary-btn" href="post-ad.html">Публикувай обява</a>':''}</div>`;
   }
 
+  // Persist cleanup before deletion so a failed Storage request can be retried.
+  const cleanupKeyV307=userId=>'urediImageCleanupV307:'+userId;
+  function readCleanupV307(userId){
+    const rows=JSON.parse(localStorage.getItem(cleanupKeyV307(userId))||'[]');
+    if(!Array.isArray(rows))throw new Error('Не успяхме да прочетем чакащите снимки за изтриване.');
+    return rows;
+  }
+  function saveCleanupV307(userId,rows){localStorage.setItem(cleanupKeyV307(userId),JSON.stringify(rows))}
+  let cleanupRunningV307=null;
+  async function flushCleanupV307(userId){
+    if(cleanupRunningV307)return cleanupRunningV307;
+    cleanupRunningV307=(async()=>{
+      const pending=readCleanupV307(userId);
+      for(const item of pending){
+        if(!v297Uuid(item.id)||!Array.isArray(item.files))continue;
+        try{
+          // Never remove images while the listing still exists (including a failed delete).
+          const listing=await client.from('listings').select('id').eq('id',item.id).maybeSingle();
+          if(listing.error)continue;
+          if(listing.data){saveCleanupV307(userId,readCleanupV307(userId).filter(x=>x.id!==item.id));continue;}
+          const files=item.files.filter(f=>f.bucket==='listing-images'&&typeof f.path==='string'&&f.path.startsWith(userId+'/'));
+          if(files.length!==item.files.length)continue;
+          for(let offset=0;offset<files.length;offset+=100){
+            const result=await client.storage.from('listing-images').remove(files.slice(offset,offset+100).map(f=>f.path));
+            if(result.error)throw result.error;
+          }
+          saveCleanupV307(userId,readCleanupV307(userId).filter(x=>x.id!==item.id));
+        }catch(error){console.warn('Image cleanup pending:',error)}
+      }
+      return readCleanupV307(userId).length;
+    })();
+    try{return await cleanupRunningV307}finally{cleanupRunningV307=null}
+  }
+  async function deleteListingV307(listing,userId){
+    if(!listing?.id)throw new Error('Обявата не е намерена. Презареди страницата.');
+    const metadata=await client.from('listing_images').select('storage_bucket,storage_path').eq('listing_id',listing.id);
+    if(metadata.error)throw metadata.error;
+    let raw=v260Val(listing,'specs','attributes','details')||{};
+    if(typeof raw==='string'){try{raw=JSON.parse(raw)}catch{raw={}}}
+    const files=[...(metadata.data||[]).map(x=>({bucket:x.storage_bucket||'listing-images',path:x.storage_path})),
+      ...[...v275ImagePathsFromRow(listing),raw.__label_path].filter(Boolean).map(path=>({bucket:'listing-images',path}))];
+    const unique=[...new Map(files.map(x=>[x.bucket+':'+x.path,x])).values()];
+    if(unique.some(f=>f.bucket!=='listing-images'||typeof f.path!=='string'||!f.path.startsWith(userId+'/')))throw new Error('Снимките изискват проверка. Обявата не е изтрита.');
+    // Stop before deleting if the browser cannot retain the retry record.
+    saveCleanupV307(userId,[...readCleanupV307(userId).filter(x=>x.id!==listing.id),{id:listing.id,files:unique}]);
+    const result=await client.from('listings').delete().eq('id',listing.id).eq('seller_id',userId).select('id');
+    if(result.error)throw result.error;
+    if(!result.data?.length)throw new Error('Обявата не беше изтрита. Презареди страницата.');
+    await flushCleanupV307(userId);
+    return readCleanupV307(userId).some(x=>x.id===listing.id);
+  }
+
   async function renderSupabaseMyAds(session){
     if(!session?.user?.id||file()!=='my-ads.html')return;
     const userId=session.user.id;
     const data=await loadPromotionData(userId);
     window.__urediMyAdsData=data;
+    let cleanupPending=0;
+    try{cleanupPending=await flushCleanupV307(userId)}catch{cleanupPending=-1}
+    qs('[data-cleanup-notice]')?.remove();
+    if(cleanupPending){
+      const notice=document.createElement('div');notice.dataset.cleanupNotice='';notice.className='panel';
+      notice.innerHTML='<div class="panel-body"><p>Има незавършено изчистване на снимки. Провери връзката и опитай отново. Ако обявата вече е изтрита, тя няма да се върне.</p><button class="secondary-btn" type="button">Опитай отново</button></div>';
+      notice.querySelector('button').addEventListener('click',async e=>{busy(e.currentTarget,true);await renderSupabaseMyAds(session)});
+      qs('.tabs')?.before(notice);
+    }
     const images=await loadMyAdsImages(data.listings.map(x=>x.id));
     const firstImage=new Map();
     for(const img of images){if(!firstImage.has(img.listing_id))firstImage.set(img.listing_id,img)}
@@ -795,18 +856,12 @@
           const title=listing?.title||'тази обява';
           if(!confirm(`Да изтрием ли „${title}“ завинаги? Това действие не може да бъде отменено.`))return;
           busy(deleteBtn,true,'Изтриване…');
-          const {data:deleted,error}=await client.from('listings').delete().eq('id',listingId).eq('seller_id',userId).select('id');
-          if(error||!deleted?.length){busy(deleteBtn,false);toast(error?humanizeError(error):'Обявата не беше изтрита. Обнови страницата и опитай отново.');return}
-          try{await client.from('listing_images').delete().eq('listing_id',listingId)}catch{}
-          const paths=listing?v275ImagePathsFromRow(listing):[];
-          let raw=v260Val(listing,'specs','attributes','details')||{};
-          if(typeof raw==='string'){try{raw=JSON.parse(raw)}catch{raw={}}}
-          const labelPath=raw&&typeof raw==='object'?String(raw.__label_path||''):'';
-          const storagePaths=[...new Set([...(paths||[]),labelPath].filter(Boolean))];
-          if(storagePaths.length){try{await client.storage.from('listing-images').remove(storagePaths)}catch(err){console.warn('Listing files cleanup:',err)}}
-          try{let favs=JSON.parse(localStorage.getItem('favorites')||'[]');favs=favs.filter(x=>x!==listingId);localStorage.setItem('favorites',JSON.stringify(favs))}catch{}
-          toast('Обявата е изтрита.');
-          await renderSupabaseMyAds(session);
+          try{
+            const pending=await deleteListingV307(listing,userId);
+            try{let favs=JSON.parse(localStorage.getItem('favorites')||'[]');localStorage.setItem('favorites',JSON.stringify(favs.filter(x=>x!==listingId)))}catch{}
+            toast(pending?'Обявата е изтрита, но снимките още не са изчистени. Опитай отново от съобщението в „Моите обяви“.':'Обявата и снимките са изтрити.');
+            await renderSupabaseMyAds(session);
+          }catch(error){toast(humanizeError(error))}finally{busy(deleteBtn,false)}
           return;
         }
         const renewBtn=e.target.closest('[data-supa-renew-listing]');
