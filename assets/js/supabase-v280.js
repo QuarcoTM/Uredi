@@ -38,6 +38,8 @@
     const m=String(error?.message||error||'').toLowerCase();
     if(m.includes('renewal is available in the final 7 days'))return 'Можеш да подновиш обявата през последните 7 дни или след изтичането ѝ.';
     if(m.includes('listing has not expired yet'))return 'Обявата още не е изтекла. Можеш да я подновиш след края на срока.';
+    if(m.includes('aal2'))return 'Потвърди с кода от приложението за двуфакторна защита, за да смениш паролата.';
+    if(m.includes('mfa_cancelled'))return 'Потвърждението е отказано. Паролата не е сменена.';
     if(m.includes('invalid login credentials'))return 'Невалиден email или парола.';
     if(m.includes('email not confirmed'))return 'Потвърди email адреса си преди вход.';
     if(m.includes('user already registered')||m.includes('already been registered'))return 'Вече има профил с този email адрес.';
@@ -123,9 +125,12 @@
         const code=(input.value||'').replace(/\D/g,'');
         if(code.length<6){errBox.textContent='Въведи кода от приложението.';input.focus();return}
         busy(submit,true,'Проверка…');
-        const {error}=await client.auth.mfa.challengeAndVerify({factorId,code});
-        if(error){busy(submit,false);errBox.textContent=humanizeError(error);input.select();return}
-        overlay.remove();resolve(true);
+        try{
+          const {error}=await client.auth.mfa.challengeAndVerify({factorId,code});
+          if(error)throw error;
+          overlay.remove();resolve(true);
+        }catch(error){errBox.textContent=humanizeError(error);input.select()}
+        finally{busy(submit,false)}
       });
       input.addEventListener('keydown',e=>{if(e.key==='Enter')submit.click()});
       setTimeout(()=>input.focus(),50);
@@ -272,6 +277,7 @@
       const btn=e.currentTarget;
       busy(btn,true,'Запазване…');
       try{
+        await ensureMfaIfEnrolled();
         const {error}=await client.auth.updateUser({password:pass});
         if(error)throw error;
       }catch(error){toast(humanizeError(error));return}
