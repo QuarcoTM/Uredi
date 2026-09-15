@@ -625,3 +625,4 @@
     }catch(err){console.error(err);toast(humanError(err));listHost.innerHTML='<div class="conversation-empty real-conversation-empty"><strong>Чатът не можа да се зареди</strong><span>Провери дали SQL блокът за v2.80 е изпълнен.</span></div>'}
   })();
 })();
+

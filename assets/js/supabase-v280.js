@@ -626,11 +626,11 @@
   }[status]||String(status||'Обява'));
 
   const publicListingImageUrl=(img)=>{
-    if(!img?.storage_path)return 'assets/img/products/washer-blue.svg';
+    if(!img?.storage_path)return 'assets/img/no-photo.svg';
     try{
       const bucket=img.storage_bucket||'listing-images';
-      return client.storage.from(bucket).getPublicUrl(img.storage_path).data.publicUrl||'assets/img/products/washer-blue.svg';
-    }catch{return 'assets/img/products/washer-blue.svg'}
+      return client.storage.from(bucket).getPublicUrl(img.storage_path).data.publicUrl||'assets/img/no-photo.svg';
+    }catch{return 'assets/img/no-photo.svg'}
   };
 
   async function loadMyAdsImages(listingIds){
@@ -1660,8 +1660,8 @@
   }
 
   function v260PublicImageUrl(img){
-    if(!img?.storage_path)return 'assets/img/products/washer-blue.svg';
-    try{return client.storage.from(img.storage_bucket||'listing-images').getPublicUrl(img.storage_path).data.publicUrl||'assets/img/products/washer-blue.svg'}catch{return 'assets/img/products/washer-blue.svg'}
+    if(!img?.storage_path)return 'assets/img/no-photo.svg';
+    try{return client.storage.from(img.storage_bucket||'listing-images').getPublicUrl(img.storage_path).data.publicUrl||'assets/img/no-photo.svg'}catch{return 'assets/img/no-photo.svg'}
   }
 
   function v260ActivePromo(state){
@@ -1852,7 +1852,8 @@
 
   async function initRealListingDetail(session){
     if(file()!=='listing.html')return;
-    const id=new URLSearchParams(location.search).get('id');if(!id)return;
+    const id=new URLSearchParams(location.search).get('id');
+    if(!v297Uuid(id)){const target=qs('#main-content');if(target)target.innerHTML='<div class="container"><h1>Обявата не е налична</h1><a href="listings.html">Към обявите</a></div>';return}
     const main=qs('#main-content');if(!main)return;
     qs('.listing-sticky-actions')?.remove();qs('[data-gallery-modal]')?.remove();qs('[data-real-gallery-modal]')?.remove();
     main.innerHTML='<div class="container"><div class="real-detail-loading">Зареждаме обявата…</div></div>';
@@ -1867,12 +1868,13 @@
     const storedUrls=(fields.imagePaths||[]).map(path=>v260PublicImageUrl(v275PseudoImage(path)));
     const legacyUrls=images.map(v260PublicImageUrl);
     const urls=storedUrls.length?storedUrls:legacyUrls;
-    const gallery=urls.length?urls:['assets/img/products/washer-blue.svg'];
+    const gallery=urls.length?urls:['assets/img/no-photo.svg'];
     const profile=prof.data||{},dealer=profile.profile_type==='dealer',seller=profile.display_name||'Продавач',promoState=v260ActivePromo(promo.data);
     const badge=promoState&&(promoState.kind==='vip'||promoState.kind==='top')?`<span class="badge ${promoState.kind==='vip'?'badge-vip':'badge-top'}">${promoState.kind==='vip'?'VIP':'TOP'}</span>`:'';
     const phone=fields.showPhone&&fields.phone?fields.phone:'';
     const phoneHref=phone?'tel:'+phone.replace(/[^+\d]/g,''):'';
     const isOwnListing=!!session?.user?.id&&session.user.id===row.seller_id;
+    v297RememberListing(row.id);
     document.title=(row.title||'Обява')+' · Пазар за бяла техника';document.body.dataset.listingId=id;document.body.dataset.sellerId=row.seller_id||'';
     const thumbs=gallery.map((u,i)=>`<button class="thumb${i===0?' active':''}" type="button" data-real-thumb="${i}" aria-label="Снимка ${i+1} от ${gallery.length}"><img alt="" loading="lazy" src="${esc(u)}"></button>`).join('');
     const phoneButton=!isOwnListing&&phone?`<a class="secondary-btn icon-action-button phone-action-button" href="${esc(phoneHref)}"><span class="icon-action-label">Обади се</span></a>`:'';
@@ -2630,7 +2632,7 @@
   async function initAdminAccess(session){
     if(file()!=='admin-access.html'||!session)return;
     const requested=new URLSearchParams(location.search).get('next');
-    const destination=['admin/users.html','admin/ads.html','admin/moderation.html','admin/reports.html','admin/blocked-profiles.html','admin/promotions-prepare.html'].includes(requested)?requested:'admin/promotions-prepare.html';
+    const destination=['admin/index.html','admin/audit.html','admin/settings.html','admin/health.html','admin/categories.html','admin/brands.html','admin/sold-archive.html','admin/users.html','admin/ads.html','admin/moderation.html','admin/reports.html','admin/blocked-profiles.html','admin/promotions-prepare.html'].includes(requested)?requested:'admin/promotions-prepare.html';
     const status=qs('[data-admin-status]'),button=qs('[data-admin-verify]');
     const access=await client.rpc('is_my_admin_account');
     if(access.error||access.data!==true){status.textContent='Този профил няма администраторски достъп.';return}
@@ -2699,6 +2701,49 @@
     });
   }
 
+  const v297Uuid=id=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(id||''));
+  function v297RememberListing(id){
+    if(!v297Uuid(id))return;
+    try{const ids=JSON.parse(localStorage.getItem('marketRecentIdsV297')||'[]');localStorage.setItem('marketRecentIdsV297',JSON.stringify([id,...(Array.isArray(ids)?ids:[]).filter(x=>x!==id&&v297Uuid(x))].slice(0,20)))}catch{}
+  }
+  async function v297Cards(rows){
+    if(!rows.length)return '';
+    const ids=rows.map(x=>x.id),sellers=[...new Set(rows.map(x=>x.seller_id).filter(Boolean))];
+    const [images,profiles]=await Promise.all([client.from('listing_images').select('*').in('listing_id',ids),sellers.length?client.from('profiles').select('id,display_name,profile_type,city').in('id',sellers):Promise.resolve({data:[]})]);
+    const first=new Map();(images.data||[]).sort(v260ImageSort).forEach(i=>{if(!first.has(i.listing_id))first.set(i.listing_id,i)});
+    const people=new Map((profiles.data||[]).map(p=>[p.id,p]));
+    return rows.map(row=>v276HomeFeaturedCard(row,v275ImagePathsFromRow(row)[0]?v275PseudoImage(v275ImagePathsFromRow(row)[0]):first.get(row.id),people.get(row.seller_id),null)).join('');
+  }
+  async function initRealHomeV297(){
+    if(file()!=='index.html')return;
+    const latest=qs('[data-real-latest-grid]');
+    if(latest){try{const r=await client.from('listings').select('*').eq('status','active').order('created_at',{ascending:false}).limit(8);if(r.error)throw r.error;latest.innerHTML=r.data?.length?await v297Cards(r.data):'<p>Все още няма активни обяви.</p>';await v288HydratePriceHistory(latest)}catch(e){latest.innerHTML='<p>Не успяхме да заредим обявите. Обнови страницата.</p>';console.warn(e)}}
+    const section=qs('[data-recent-section]'),grid=qs('[data-recent-grid]');if(!section||!grid)return;
+    section.style.display='none';
+    try{let ids=JSON.parse(localStorage.getItem('marketRecentIdsV297')||'[]');ids=(Array.isArray(ids)?ids:[]).filter(v297Uuid).slice(0,20);if(!ids.length)return;
+    const r=await client.from('listings').select('*').in('id',ids).eq('status','active');if(r.error)throw r.error;
+    const rows=(r.data||[]).sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id)).slice(0,4);if(!rows.length)return;
+    grid.innerHTML=await v297Cards(rows);section.style.display='';await v288HydratePriceHistory(grid);
+    }catch(e){console.warn('Recently viewed:',e)}
+  }
+  async function initRealSellerV297(){
+    if(file()!=='seller.html')return;
+    const main=qs('#main-content'),id=new URLSearchParams(location.search).get('id');if(!main)return;
+    const unavailable=()=>{main.innerHTML='<div class="container"><div class="empty-state"><h1>Профилът не е наличен</h1><a href="listings.html">Към обявите</a></div></div>'};
+    if(!v297Uuid(id)){unavailable();return}
+    const r=await client.from('profiles').select('id,display_name,profile_type,city,account_status').eq('id',id).maybeSingle();
+    if(r.error){main.innerHTML='<div class="container"><p>Не успяхме да заредим профила. Обнови страницата.</p></div>';return}
+    if(!r.data||['banned','suspended'].includes(r.data.account_status)){unavailable();return}
+    const p=r.data;
+    let company='';
+    if(p.profile_type==='dealer'){
+      const d=await client.from('dealer_profiles').select('company_name,eik,company_city').eq('user_id',id).maybeSingle();
+      if(d.error)company='<p>Не успяхме да заредим фирмените данни.</p>';
+      else if(d.data)company=`<h2>Фирмени данни</h2><p>${esc(d.data.company_name||'')}<br>ЕИК / Булстат: ${esc(d.data.eik||'Не е посочен')}<br>${esc(d.data.company_city||'')}</p>`;
+    }
+    main.innerHTML=`<div class="container"><section class="seller-card"><h1>${esc(p.display_name||'Продавач')}</h1><p>${p.profile_type==='dealer'?'Търговец':'Частно лице'}${p.city?' · '+esc(p.city):''}</p>${company}<p>За контакт използвай бутона за съобщение или телефона в конкретната обява.</p><a class="secondary-btn" href="listings.html">Към обявите</a></section></div>`;
+  }
+
   async function boot(){
     initRegistration();
     initLogin();
@@ -2718,6 +2763,8 @@
     await initRealReportV294(state.session);
     await renderSupabaseMyAds(state.session);
     await initRealHomeFeatured();
+    await initRealHomeV297();
+    await initRealSellerV297();
     await initPublicListings();
     await initRealListingDetail(state.session);
     await initRealChatBadge(state.session);

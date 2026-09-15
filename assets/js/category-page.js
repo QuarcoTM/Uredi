@@ -112,14 +112,14 @@
       });
 
       // The category page must never display an unrelated appliance.
-      // For missing demo categories, show a truthful empty state.
+      // For categories without listings, show a truthful empty state.
       if (zero) {
         if (hardMatches === 0) {
           zero.style.display = 'block';
           const h = zero.querySelector('h3');
           const p = zero.querySelector('p');
           if (h) h.textContent = category
-            ? `Няма тестови обяви в „${category}“`
+            ? `Няма обяви в „${category}“`
             : 'Няма намерени обяви';
           if (p) p.textContent = category
             ? 'Категорията е отворена правилно. Реалните обяви ще се показват тук след свързването на базата данни.'
@@ -201,3 +201,4 @@
     start();
   }
 })();
+
