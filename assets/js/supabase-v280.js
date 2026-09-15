@@ -1771,7 +1771,7 @@
     rows.forEach(row=>{const path=v275ImagePathsFromRow(row)[0];if(path)firstImage.set(row.id,v275PseudoImage(path))});
     const promoMap=new Map((promosRes.data||[]).map(x=>[x.listing_id,x])),profileMap=new Map((profilesRes.data||[]).map(x=>[x.id,x]));
     list.innerHTML=rows.map(row=>v260ListingRowHTML(row,firstImage.get(row.id),profileMap.get(row.seller_id),promoMap.get(row.id))).join('');
-    await v288HydratePriceHistory(list);
+    v288HydratePriceHistory(list).catch(console.warn);
     // Add real brands to the filter without removing the curated defaults.
     const brandSelect=qs('#brandFilter');if(brandSelect){const existing=new Set([...brandSelect.options].map(o=>v260Norm(o.value||o.textContent)));rows.forEach(r=>{const b=v260ListingFields(r).brand;if(b&&!existing.has(v260Norm(b))){const o=document.createElement('option');o.value=b;o.textContent=b;brandSelect.appendChild(o);existing.add(v260Norm(b))}})}
     if(skeleton)skeleton.classList.add('is-hidden');list.dataset.supabaseLoading='0';v260BindPublicFilters();
@@ -1893,7 +1893,7 @@
       <div class="detail-grid"><section><div class="gallery-main real-gallery-main" data-real-gallery-main role="button" tabindex="0" aria-label="Отвори снимката на цял екран"><img alt="${esc(row.title||'Обява')}" src="${esc(gallery[0])}" fetchpriority="high"><div class="gallery-zoom-hint" aria-hidden="true">⛶</div><div class="gallery-counter" data-real-gallery-counter>1/${gallery.length}</div></div><div class="thumbs real-gallery-thumbs">${thumbs}</div>
       <div class="description-card"><h2>Описание</h2><p>${esc(fields.description||'Няма добавено описание.')}</p><h2 style="margin-top:18px">Забележки и дефекти</h2><p class="muted">${esc(fields.defects||'Няма посочени забележки.')}</p></div>
       <div class="spec-card"><div class="spec-head">Характеристики</div><div class="spec-grid">${v260SpecRows(fields)}</div></div>
-      <div class="listing-action-panel"><div class="listing-action-panel-head">Действия по обявата</div><div class="detail-actions">${primaryContactAction}${phoneButton}<button class="secondary-btn" data-favorite="${esc(id)}" type="button">Запази обявата</button><button class="secondary-btn" data-real-share type="button">Сподели обявата</button><button class="secondary-btn compare-select-v299" data-compare-real="${esc(id)}" aria-pressed="false" type="button">Сравни</button></div>${chatOnly}</div></section>
+      <div class="listing-action-panel"><div class="listing-action-panel-head">Действия по обявата</div><div class="detail-actions">${primaryContactAction}${phoneButton}<button class="secondary-btn" data-favorite="${esc(id)}" type="button">Запази обявата</button><button class="secondary-btn" data-real-share type="button">Сподели обявата</button><button class="secondary-btn" data-compare-real="${esc(id)}" aria-pressed="false" type="button">Сравни</button></div>${chatOnly}</div></section>
       <aside class="detail-side"><div class="detail-card"><div class="real-detail-tags"><span class="tag">${esc(fields.category)}</span>${badge}</div><div class="listing-title-row"><h1>${esc(row.title||'Обява')}</h1></div>${v260SpecSummary(fields)?`<div class="muted small">${esc(v260SpecSummary(fields))}</div>`:''}<div class="listing-updated-meta">Публикувана ${esc(v260RelativeDate(row.published_at||row.created_at))}</div><div class="price-with-trend detail-price-with-trend"><div class="detail-price">${esc(v260Money(row.price))}</div></div><div class="real-detail-location">${esc(fields.city||'България')}</div></div>
       <div class="seller-card"><div class="seller-head"><div class="avatar">${esc(v260Initials(seller))}</div><div><strong>${esc(seller)}</strong><span class="seller-type-inline"><span>${dealer?'Търговец':'Частно лице'}${profile.city?' · '+esc(profile.city):''}</span></span></div></div>${!isOwnListing&&phone?`<a class="secondary-btn seller-phone-bottom phone-action-button" href="${esc(phoneHref)}">Обади се</a>`:''}<a class="secondary-btn" href="seller.html?id=${encodeURIComponent(row.seller_id||'')}" style="width:100%;margin-top:10px">Виж профила</a>${!isOwnListing?`<div class="seller-secondary-actions"><a class="secondary-btn listing-report-button" href="report.html?type=listing&listing=${encodeURIComponent(id)}">Докладвай обявата</a></div>`:''}</div></aside></div></div>`;
     syncCompareV299();
@@ -2767,7 +2767,7 @@
     qsa('[data-listing-id]').forEach(card=>{
       const id=card.dataset.listingId;if(!v297Uuid(id)||card.querySelector('[data-compare-real]'))return;
       const host=card.querySelector('.detail-actions,.listing-right,.card-body');if(!host)return;
-      const b=document.createElement('button');b.type='button';b.className='compare-select-v299';b.dataset.compareReal=id;host.appendChild(b);
+      const b=document.createElement('button');b.type='button';b.className=host.matches('.detail-actions')?'secondary-btn':'compare-select-v299';b.dataset.compareReal=id;host.appendChild(b);
     });syncCompareV299();
   }
   async function toggleCompareV299(id){
@@ -2809,7 +2809,7 @@
     }catch(e){root.innerHTML='<p role="alert">Не успяхме да заредим сравнението. Изборът ти е запазен.</p><button class="secondary-btn" data-compare-retry>Опитай отново</button>';console.warn(e)}
   }
   function initCompareV299(){
-    const style=document.createElement('link');style.rel='stylesheet';style.href='assets/css/compare-v299.css?v=2.99';document.head.appendChild(style);
+    const style=document.createElement('link');style.rel='stylesheet';style.href='assets/css/compare-v299.css?v=3.02';document.head.appendChild(style);
     const nav=qs('.main-nav');if(nav&&!nav.querySelector('a[href="compare.html"]')){const a=document.createElement('a');a.href='compare.html';a.textContent='Сравнение';nav.appendChild(a)}
     const dock=document.createElement('div');dock.className='compare-dock-v299';dock.dataset.compareDock='';dock.hidden=true;dock.innerHTML='<a href="compare.html"></a>';document.body.appendChild(dock);
     document.addEventListener('click',e=>{

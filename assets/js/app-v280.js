@@ -2130,3 +2130,49 @@ void 0;
     window.UrediCharCounters={refresh:update,refreshAll,count:charCount};
   })();
 
+
+// Keep the page still behind filters and dialogs, including iOS edge swipes.
+(()=>{
+  const body=document.body,html=document.documentElement;
+  let locked=false,savedX=0,savedY=0,lastX=0,lastY=0;
+  const visible=el=>el.getClientRects().length>0&&getComputedStyle(el).visibility!=='hidden';
+  const surfaces=()=>[
+    ...[...document.querySelectorAll('.filter-panel.open')].filter(el=>getComputedStyle(el).position==='fixed'),
+    ...document.querySelectorAll('[role="dialog"][aria-modal="true"],.price-history-popover.open .price-history-popover-card,[data-gallery-modal].open')
+  ].filter(el=>!el.closest('[data-ad-preview-modal]')&&visible(el));
+  function update(){
+    const active=surfaces().length>0;
+    if(active===locked)return;
+    locked=active;
+    if(active){
+      savedX=window.scrollX;savedY=window.scrollY;
+      body.style.setProperty('--overlay-scroll-top',`-${savedY}px`);
+      body.classList.add('overlay-scroll-locked-v302');html.classList.add('overlay-scroll-locked-v302');
+    }else{
+      body.classList.remove('overlay-scroll-locked-v302');html.classList.remove('overlay-scroll-locked-v302');
+      body.style.removeProperty('--overlay-scroll-top');
+      const old=html.style.scrollBehavior;html.style.scrollBehavior='auto';
+      window.scrollTo(savedX,savedY);html.style.scrollBehavior=old;
+    }
+  }
+  function canScroll(target,dx,dy){
+    const roots=surfaces(),root=roots.find(el=>el.contains(target));
+    if(!root)return false;
+    for(let el=target instanceof Element?target:target.parentElement;el;el=el.parentElement){
+      const css=getComputedStyle(el);
+      if(Math.abs(dx)>Math.abs(dy)&&/(auto|scroll)/.test(css.overflowX)&&el.scrollWidth>el.clientWidth+1&&((dx<0&&el.scrollLeft>0)||(dx>0&&el.scrollLeft+el.clientWidth<el.scrollWidth-1)))return true;
+      if(/(auto|scroll)/.test(css.overflowY)&&el.scrollHeight>el.clientHeight+1&&((dy<0&&el.scrollTop>0)||(dy>0&&el.scrollTop+el.clientHeight<el.scrollHeight-1)))return true;
+      if(el===root)break;
+    }
+    return false;
+  }
+  document.addEventListener('touchstart',e=>{lastX=e.touches[0]?.clientX||0;lastY=e.touches[0]?.clientY||0},{passive:true,capture:true});
+  document.addEventListener('touchmove',e=>{
+    if(!locked||e.touches.length!==1)return;
+    const x=e.touches[0].clientX,y=e.touches[0].clientY,dx=lastX-x,dy=lastY-y;lastX=x;lastY=y;
+    if(!canScroll(e.target,dx,dy)&&e.cancelable)e.preventDefault();
+  },{passive:false,capture:true});
+  document.addEventListener('wheel',e=>{if(locked&&!e.ctrlKey&&!canScroll(e.target,e.deltaX,e.deltaY)&&e.cancelable)e.preventDefault()},{passive:false,capture:true});
+  new MutationObserver(update).observe(body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','hidden','aria-hidden','open']});
+  window.addEventListener('resize',update);window.addEventListener('pageshow',update);update();
+})();
