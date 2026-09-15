@@ -36,6 +36,7 @@
 
   const humanizeError=(error)=>{
     const m=String(error?.message||error||'').toLowerCase();
+    if(m.includes('listing has not expired yet'))return 'Обявата още не е изтекла. Можеш да я подновиш след края на срока.';
     if(m.includes('invalid login credentials'))return 'Невалиден email или парола.';
     if(m.includes('email not confirmed'))return 'Потвърди email адреса си преди вход.';
     if(m.includes('user already registered')||m.includes('already been registered'))return 'Вече има профил с този email адрес.';
@@ -685,6 +686,7 @@
     if(listing.status==='active')statusActions='<button class="overflow-menu-item" type="button" data-supa-listing-status="reserved">Запази за купувач</button><button class="overflow-menu-item" type="button" data-supa-listing-status="sold">Маркирай като продадена</button><button class="overflow-menu-item" type="button" data-supa-listing-status="removed">Свали обявата</button>';
     else if(listing.status==='reserved')statusActions='<button class="overflow-menu-item" type="button" data-supa-listing-status="active">Върни като активна</button><button class="overflow-menu-item" type="button" data-supa-listing-status="sold">Маркирай като продадена</button><button class="overflow-menu-item" type="button" data-supa-listing-status="removed">Свали обявата</button>';
     else if(listing.status==='sold')statusActions='<button class="overflow-menu-item" type="button" data-supa-listing-status="active">Активирай отново</button><button class="overflow-menu-item" type="button" data-supa-listing-status="removed">Свали обявата</button>';
+    else if(listing.status==='expired')statusActions='<button class="overflow-menu-item" type="button" data-supa-renew-listing>Поднови за 60 дни</button>';
     else if(listing.status==='removed')statusActions='<button class="overflow-menu-item" type="button" data-supa-listing-status="active">Върни като активна</button>';
     else statusActions='<button class="overflow-menu-item" type="button" data-supa-listing-status="active">Активирай обявата</button>';
     const editAction=`<a class="overflow-menu-item" href="edit-ad.html?id=${encodeURIComponent(listing.id)}">Редактирай обявата</a>`;
@@ -803,6 +805,20 @@
           try{let favs=JSON.parse(localStorage.getItem('favorites')||'[]');favs=favs.filter(x=>x!==listingId);localStorage.setItem('favorites',JSON.stringify(favs))}catch{}
           toast('Обявата е изтрита.');
           await renderSupabaseMyAds(session);
+          return;
+        }
+        const renewBtn=e.target.closest('[data-supa-renew-listing]');
+        if(renewBtn){
+          e.preventDefault();e.stopPropagation();
+          const listingId=renewBtn.closest('[data-listing-id]')?.dataset.listingId;
+          if(!listingId||renewBtn.disabled)return;
+          busy(renewBtn,true,'Подновяване…');
+          try{
+            const {error}=await client.rpc('renew_listing',{p_listing_id:listingId});
+            if(error){toast(humanizeError(error));return}
+            toast('Обявата е подновена за 60 дни.');
+            await renderSupabaseMyAds(session);
+          }catch(error){toast(humanizeError(error))}finally{busy(renewBtn,false)}
           return;
         }
         const statusBtn=e.target.closest('[data-supa-listing-status]');
