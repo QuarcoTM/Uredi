@@ -1,4 +1,4 @@
-const CACHE='tehnika-v2.94';
+const CACHE='tehnika-v2.95';
 const CORE=[
   './index.html',
   './profile-promotions.html',
