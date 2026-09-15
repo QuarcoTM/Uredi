@@ -3608,7 +3608,7 @@
 
     // Promote / bonus page.
     const promoteRoot=document.querySelector('[data-promote-root]');
-    if(promoteRoot){
+    if(promoteRoot&&!window.SITE_CONFIG?.supabaseEnabled){
       const listing=new URLSearchParams(location.search).get('listing')||'';
 
       if(!M.paidAvailable()){
@@ -3665,7 +3665,7 @@
 
     // Checkout: block overlap before purchase; clear failure screen.
     const checkoutRoot=document.querySelector('[data-checkout-root]');
-    if(checkoutRoot){
+    if(checkoutRoot&&!window.SITE_CONFIG?.supabaseEnabled){
       const qs=new URLSearchParams(location.search),itemId=qs.get('item')||'',found=M.findItem(itemId),context=qs.get('context')||'wallet',listing=qs.get('listing')||'',backHref=listing?'promote.html?listing='+encodeURIComponent(listing):'promote.html';
       const renderFailure=message=>{
         checkoutRoot.innerHTML='<div class="checkout-shell"><div class="checkout-card payment-failed-card"><h1>Плащането не беше успешно</h1><p>'+esc(message||'Не успяхме да завършим плащането. Не е активирана промоция.')+'</p><button class="primary-btn" data-retry-payment type="button">Опитай отново</button><a class="secondary-btn checkout-back" href="'+backHref+'">Назад</a></div></div>';
@@ -4360,3 +4360,4 @@
 
     window.UrediCharCounters={refresh:update,refreshAll,count:charCount};
   })();
+

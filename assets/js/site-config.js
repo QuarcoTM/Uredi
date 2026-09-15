@@ -10,6 +10,8 @@ window.SITE_CONFIG={
   currency:'€',
   freeBeta:true,
   paidServicesEnabled:false,
+  promotionPurchaseUiEnabled:false,
+  postPromotionEnabled:false,
   paymentMode:'test',
   livePaymentsReady:false,
   emailVerificationRequired:true,

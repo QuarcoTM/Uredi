@@ -560,7 +560,7 @@
     if(summaryAvailable)summaryAvailable.textContent=String(totalAvailable);
     if(summaryActive)summaryActive.textContent=String(totalActive);
 
-    const paidEnabled=!!data.settings?.paid_services_enabled && !data.settings?.free_beta;
+    const paidEnabled=v290PaidFlags(data.settings);
     if(buyCta)buyCta.hidden=!paidEnabled;
 
     if(availableBox){
@@ -655,14 +655,16 @@
     if(state&&(state.kind==='top'||state.kind==='vip')){
       return `<span class="overflow-menu-item is-disabled">Активен ${state.kind==='vip'?'VIP':'TOP'}${state.expires_at?' до '+esc(fmtBgDate(state.expires_at)):''}</span>`;
     }
+    const purchase=v290PaidFlags(data.settings)?`<a class="overflow-menu-item" href="promote.html?listing=${encodeURIComponent(listing.id)}">Изкачи / TOP / VIP</a>`:'';
     const groups=groupAvailablePromotionLots(data).filter(g=>g.quantity>0);
+    if(purchase&&!groups.length)return purchase;
     if(!groups.length)return '<a class="overflow-menu-item" href="profile-promotions.html">Промотиране на обяви</a>';
     return groups.map(g=>{
       const p=g.product;
       const label=p.kind==='bump'?'Изкачи':(p.name||promoKindLabel(p.kind));
       const chosen=selectedProductId&&selectedProductId===p.id?' · избрано':'';
       return `<button class="overflow-menu-item promo-action" type="button" data-supa-use-promo="${esc(p.id)}">Промотирай с ${esc(label)}${esc(chosen)}</button>`;
-    }).join('');
+    }).join('')+purchase;
   }
 
   function realAdRowHTML(data,listing,image,selectedProductId=''){
@@ -1354,8 +1356,66 @@
     return {ok:!errors.length,errors,step};
   }
 
+  // v2.90: server catalog and pending orders; no browser-side payment completion.
+  function v290PaidFlags(settings){
+    return cfg.freeBeta===false&&cfg.paidServicesEnabled===true&&cfg.promotionPurchaseUiEnabled===true
+      &&settings?.free_beta===false&&settings?.paid_services_enabled===true;
+  }
+  async function v290PaidReady(){
+    if(cfg.freeBeta!==false||cfg.paidServicesEnabled!==true||cfg.promotionPurchaseUiEnabled!==true)return false;
+    const {data,error}=await client.from('monetization_settings').select('*').eq('singleton',true).single();
+    return !error&&v290PaidFlags(data);
+  }
+  function v290Price(p){
+    const money=n=>new Intl.NumberFormat('bg-BG',{style:'currency',currency:'EUR'}).format(Number(n));
+    return (p.on_promo?`<del>${esc(money(p.regular_price))}</del> `:'')+`<strong>${esc(money(p.current_price))}</strong>`
+      +(p.on_promo&&p.promo_ends_at?` · до ${esc(fmtBgDate(p.promo_ends_at,true))}`:'');
+  }
+  async function v290InitPurchasePages(session){
+    const root=qs('[data-promote-root],[data-checkout-root]');if(!root)return;
+    const closed=()=>{root.innerHTML='<div class="feature-disabled"><h1>Публикуването е безплатно</h1><p>В момента не се предлагат платени услуги.</p><a class="primary-btn" href="my-ads.html">Моите обяви</a></div>'};
+    closed();
+    if(!session?.user?.id||!await v290PaidReady())return;
+    const res=await client.rpc('get_promotion_catalog');
+    if(res.error){root.innerHTML='<p>Не успяхме да заредим услугите. Презареди страницата.</p>';return}
+    const catalog=res.data||[],params=new URLSearchParams(location.search),listing=params.get('listing')||'';
+    if(listing){
+      const r=await client.from('listings').select('id,seller_id,status').eq('id',listing).single();
+      if(r.error||r.data?.seller_id!==session.user.id||r.data?.status!=='active'){
+        root.innerHTML='<p>Избери своя активна обява.</p><a href="my-ads.html">Моите обяви</a>';return;
+      }
+    }
+    if(root.hasAttribute('data-promote-root')){
+      root.innerHTML='<h1>Промотирай обява</h1><div class="promotion-grid">'+catalog.map(p=>`<article class="promo-card"><h2>${esc(p.item_name)}</h2><p>${esc(p.description||'')}</p><p>${v290Price(p)}</p><a class="primary-btn" href="checkout.html?item=${encodeURIComponent(p.item_id)}&type=${encodeURIComponent(p.item_type)}${listing&&p.item_type==='product'?'&listing='+encodeURIComponent(listing):''}">${listing&&p.item_type==='product'?'Купи и използвай':'Купи'}</a></article>`).join('')+'</div>';return;
+    }
+    const item=catalog.find(p=>p.item_id===params.get('item')&&p.item_type===(params.get('type')||'product'));
+    if(!item||listing&&item.item_type!=='product'){root.innerHTML='<p>Невалидна услуга.</p>';return}
+    // A separately integrated server payment adapter is required before launch.
+    // It must use only the server order ID and verify payment by webhook.
+    const adapter=window.UrediPayments;
+    const ready=typeof adapter?.startCheckout==='function';
+    root.innerHTML=`<div class="checkout-shell"><div class="checkout-card"><h1>${esc(item.item_name)}</h1><p>${v290Price(item)}</p><p>${listing?'Услугата ще се активира за обявата след потвърдено плащане.':'Активациите ще бъдат добавени в профила след потвърдено плащане.'}</p>${ready?'':'<p>Плащанията още не са достъпни.</p>'}<button type="button" class="primary-btn" data-real-checkout ${ready?'':'disabled'}>Продължи към плащане</button><p data-checkout-status role="status"></p><a href="my-ads.html">Моите обяви</a></div></div>`;
+    let orderId=null;
+    qs('[data-real-checkout]',root).addEventListener('click',async e=>{
+      const b=e.currentTarget;if(b.disabled)return;busy(b,true);
+      try{
+        if(!await v290PaidReady())throw new Error('Платените услуги са изключени.');
+        if(!orderId){
+          const r=await client.rpc('create_promotion_order',{p_item_type:item.item_type,p_item_id:item.item_id,p_listing_id:listing||null,p_apply_immediately:!!listing});
+          if(r.error)throw r.error;orderId=r.data;
+        }
+        await adapter.startCheckout({orderId});
+        qs('[data-checkout-status]',root).textContent='Очаква се потвърждение на плащането.';
+      }catch(err){qs('[data-checkout-status]',root).textContent='Плащането не е завършено. '+(err.message||'Опитай отново.');}
+      finally{busy(b,false)}
+    });
+  }
+
   async function v260RenderPostPromotionChoices(session){
+    window.UrediPostAdPromotion={getSelected:()=>'',isPurchase:()=>false};
     if(file()!=='post-ad.html'||!session?.user?.id)return '';
+    // This entire selector stays absent during FREE BETA, including bonus choices.
+    if(cfg.freeBeta!==false || cfg.postPromotionEnabled!==true)return '';
     const post=qs('.post-layout');if(!post)return '';
     const sections=qsa('.form-section',post),last=sections[sections.length-1],panel=last?.querySelector('.panel-body');
     if(!panel)return '';
@@ -1363,7 +1423,7 @@
     if(box)box.remove();
     box=document.createElement('div');box.className='post-promotion-box supa-post-promotion';box.dataset.supaPostPromotion='';
     box.innerHTML='<div class="post-promo-title"><strong>Промотирай веднага</strong><span>Зареждаме наличните ти активации…</span></div>';
-    const callout=panel.querySelector('.success-callout');panel.insertBefore(box,callout||panel.firstChild);
+    const callout=panel.querySelector('.success-callout');panel.insertBefore(box,callout?.closest('.form-grid')||panel.firstChild);
 
     // For publishing we only need the user's unused lots + enabled products.
     // Do not make the selector depend on My Ads/history/state RLS, otherwise one unrelated policy can hide a valid TOP/VIP credit.
@@ -1387,12 +1447,18 @@
       productById:new Map(products.map(p=>[p.id,p]))
     };
     const groups=groupAvailablePromotionLots(data).filter(g=>g.quantity>0);
+    let catalog=[];
+    if(await v290PaidReady()){
+      const res=await client.rpc('get_promotion_catalog');
+      if(!res.error)catalog=(res.data||[]).filter(p=>p.item_type==='product'&&!groups.some(g=>g.product.id===p.item_id));
+    }
+    const purchaseOptions=catalog.map(p=>`<label class="post-promo-option"><input type="radio" name="supa-post-promotion" value="${esc(p.item_id)}"><span><b>${esc(p.item_name)}</b><small>${v290Price(p)} · плащане след публикуване</small></span></label>`).join('');
     const options=groups.map(g=>{
       const p=g.product,label=p?.name||promoKindLabel(p?.kind);
       const expiry=g.earliestExpiry?`<small>Налични: ${g.quantity} · използвай до ${esc(fmtBgDate(g.earliestExpiry))}</small>`:`<small>Налични: ${g.quantity}</small>`;
       return `<label class="post-promo-option"><input type="radio" name="supa-post-promotion" value="${esc(p.id)}"><span><b>Използвай 1 × ${esc(label)}</b>${expiry}</span>${g.hasBonus?'<em>ПОДАРЪК</em>':''}</label>`;
     }).join('');
-    box.innerHTML=`<div class="post-promo-title"><strong>Промотирай веднага</strong><span>По желание. Избраната активация се използва едва след успешно публикуване.</span></div><label class="post-promo-option is-selected"><input type="radio" name="supa-post-promotion" value="" checked><span><b>Публикувай без промотиране</b><small>Можеш да промотираш и по-късно.</small></span></label>${options}${groups.length?'':'<div class="post-promo-none">Нямаш налична активация в момента.</div>'}<a class="post-promo-packages" href="profile-promotions.html">Промотиране на обяви</a>`;
+    box.innerHTML=`<div class="post-promo-title"><strong>Промотирай веднага</strong><span>По желание. Избраната активация се използва едва след успешно публикуване.</span></div><label class="post-promo-option is-selected"><input type="radio" name="supa-post-promotion" value="" checked><span><b>Публикувай без промотиране</b><small>Можеш да промотираш и по-късно.</small></span></label>${options}${purchaseOptions}${groups.length||catalog.length?'':'<div class="post-promo-none">Нямаш налична активация в момента.</div>'}<a class="post-promo-packages" href="profile-promotions.html">Промотиране на обяви</a>`;
     const publish=qs('[data-publish]');
     const sync=()=>{
       qsa('.post-promo-option',box).forEach(x=>x.classList.toggle('is-selected',!!x.querySelector('input')?.checked));
@@ -1401,7 +1467,7 @@
       if(publish)publish.textContent=group?`Публикувай + ${group.product.short_name||group.product.name||promoKindLabel(group.product.kind)}`:'Публикувай безплатно';
     };
     box.addEventListener('change',sync);sync();
-    window.UrediPostAdPromotion={getSelected:()=>box.querySelector('input[name="supa-post-promotion"]:checked')?.value||'',data};
+    window.UrediPostAdPromotion={getSelected:()=>cfg.freeBeta===false&&cfg.postPromotionEnabled===true?(box.querySelector('input[name="supa-post-promotion"]:checked')?.value||''):'',isPurchase:id=>catalog.some(p=>p.item_id===id),data};
     return box;
   }
 
@@ -1431,7 +1497,8 @@
         toast('Провери данните на обявата.');return;
       }
       if(!session.user.email_confirmed_at){toast('Потвърди email адреса си преди публикуване.');location.href='verify-email.html?next=post-ad.html';return}
-      const selectedPromotion=window.UrediPostAdPromotion?.getSelected?.()||'';
+      const selectedPromotion=cfg.freeBeta===false&&cfg.postPromotionEnabled===true?(window.UrediPostAdPromotion?.getSelected?.()||''):'';
+      const purchasePromotion=selectedPromotion&&window.UrediPostAdPromotion?.isPurchase?.(selectedPromotion);
       const photos=window.marketPreparedPhotos||[],label=window.marketPreparedLabelPhoto||null;
       publish.dataset.actionBusy='1';publish.classList.add('is-publishing');publish.dataset.oldText=publish.textContent;publish.disabled=true;publish.textContent='Създаване на обявата…';
       v260PostFeedback('ok','<strong>Публикуваме обявата.</strong><br>Не затваряй страницата, докато снимките се качват.');
@@ -1463,16 +1530,19 @@
         }
         try{await v260AdaptiveUpdateListing(listing.id,{published_at:v260NowIso(),expires_at:v260ExpiryIso(),updated_at:v260NowIso()})}catch(err){console.warn('Listing timestamps:',err)}
         let promoted=false,promoFailed=false;
-        if(selectedPromotion){
+        if(selectedPromotion&&!purchasePromotion){
           publishStage='активиране на промотирането';
           publish.textContent='Активиране на промотирането…';
-          const promo=await client.rpc('activate_promotion',{p_listing_id:listing.id,p_product_id:selectedPromotion});
-          if(promo.error){promoFailed=true;console.warn('Promotion after publish:',promo.error)}else promoted=true;
+          try{
+            const promo=await client.rpc('activate_promotion',{p_listing_id:listing.id,p_product_id:selectedPromotion});
+            if(promo.error)throw promo.error;
+            promoted=true;
+          }catch(err){promoFailed=true;console.warn('Promotion after publish:',err)}
         }
         post.dataset.supabaseSafeLeave='1';document.documentElement.dataset.supabasePublishing='1';
         const q=new URLSearchParams({published:'1',id:listing.id});
         if(promoted)q.set('promoted','1');if(promoFailed)q.set('promo_failed','1');
-        location.href='my-ads.html?'+q.toString();
+        location.href=purchasePromotion?'checkout.html?item='+encodeURIComponent(selectedPromotion)+'&listing='+encodeURIComponent(listing.id)+'&context=publish':'my-ads.html?'+q.toString();
       }catch(err){
         console.error('Real publish failed',err);
         if(listing?.id){
@@ -2567,6 +2637,7 @@
     await initProfileEdit(state.session,state.account);
     await initAccountSecurity(state.session);
     await initSupabasePromotions(state.session);
+    await v290InitPurchasePages(state.session);
     await initSupabasePostAd(state.session,state.account);
     await initRealEditAd(state.session);
     await renderSupabaseMyAds(state.session);
@@ -2580,3 +2651,4 @@
 
   boot().catch(err=>{console.error(err);toast(humanizeError(err))});
 })();
+

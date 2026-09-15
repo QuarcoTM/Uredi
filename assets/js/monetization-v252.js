@@ -125,7 +125,11 @@
     const c=getConfig();
     return {freeBeta:c.freeBeta,paidServicesEnabled:c.paidServicesEnabled,paymentMode:c.paymentMode,livePaymentsReady:c.livePaymentsReady};
   }
-  function paidAvailable(){const p=getPlatform();return !p.freeBeta&&p.paidServicesEnabled;}
+  function paidAvailable(){
+    const site=window.SITE_CONFIG||{};
+    if(site.supabaseEnabled && (site.freeBeta!==false || site.paidServicesEnabled!==true || site.promotionPurchaseUiEnabled!==true))return false;
+    const p=getPlatform();return !p.freeBeta&&p.paidServicesEnabled;
+  }
   function checkoutAllowed(){const p=getPlatform();return paidAvailable()&&(p.paymentMode==='test'||p.livePaymentsReady);}
 
   function getCurrentUser(){
@@ -176,6 +180,7 @@
     const p=c.packages.find(x=>x.id===id);return p?{type:'package',item:p,config:c}:null;
   }
   function completePurchase(itemId,opts){
+    if(window.SITE_CONFIG?.supabaseEnabled)throw new Error('Покупките се потвърждават само от платежния сървър.');
     opts=opts||{};if(!paidAvailable())throw new Error('Платените услуги не са активни.');if(!checkoutAllowed())throw new Error('Checkout не е готов за този режим.');
     const found=findItem(itemId);if(!found||!found.item.enabled)throw new Error('Офертата не е активна.');
     if(opts.listingId && found.type==='product'){
